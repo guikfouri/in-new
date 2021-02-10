@@ -1,0 +1,100 @@
+package br.com.seatecnologia.in.submit.jornal.configuration;
+
+public class JornalConfigurationDisplayContext {
+	
+	public String get_fromName() {
+		return _fromName;
+	}
+	public void set_fromName(String _fromName) {
+		this._fromName = _fromName;
+	}
+	public String get_fromAddress() {
+		return _fromAddress;
+	}
+	public void set_fromAddress(String _fromAddress) {
+		this._fromAddress = _fromAddress;
+	}
+	public String get_emailSubject() {
+		return _emailSubject;
+	}
+	public void set_emailSubject(String _emailSubject) {
+		this._emailSubject = _emailSubject;
+	}
+	public String get_emailBody() {
+		return _emailBody;
+	}
+	public void set_emailBody(String _emailBody) {
+		this._emailBody = _emailBody;
+	}
+	public String get_groupId() {
+		return _groupId;
+	}
+	public void set_groupId(String _groupId) {
+		this._groupId = _groupId;
+	}
+	public String get_folderId() {
+		return _folderId;
+	}
+	public void set_folderId(String _folderId) {
+		this._folderId = _folderId;
+	}
+	public String get_structureId() {
+		return _structureId;
+	}
+	public void set_structureId(String _structureId) {
+		this._structureId = _structureId;
+	}
+	public String get_templateId() {
+		return _templateId;
+	}
+	public void set_templateId(String _templateId) {
+		this._templateId = _templateId;
+	}
+
+	public String get_folderIdImages() {
+		return _folderIdImages;
+	}
+	public void set_folderIdImages(String _folderIdImages) {
+		this._folderIdImages = _folderIdImages;
+	}
+
+	public String get_emailDest() {
+		return _emailDest;
+	}
+	public void set_emailDest(String _emailDest) {
+		this._emailDest = _emailDest;
+	}
+	public String get_port() {
+		return _port;
+	}
+	public void set_port(String _port) {
+		this._port = _port;
+	}
+	public String get_pathLogo() {
+		return _pathLogo;
+	}
+	public void set_pathLogo(String _pathLogo) {
+		this._pathLogo = _pathLogo;
+	}
+	public String get_pathScript() {
+		return _pathScript;
+	}
+	public void set_pathScript(String _pathScript) {
+		this._pathScript = _pathScript;
+	}
+
+	private String _structureId;
+	private String _templateId;
+	private String _folderId;
+	private String _folderIdImages;
+	private String _groupId;
+	private String _pathLogo;
+	private String _pathScript;
+	private String _fromName;
+	private String _fromAddress;
+	private String _emailDest;
+	private String _emailSubject;
+	private String _emailBody;
+	private String _port;
+
+}

@@ -1,0 +1,6 @@
+INDEX VERSION 1.4+/home/kfouri/Documents/liferay/workspaces/in-new/.metadata/.plugins/org.eclipse.wst.jsdt.core/indexes
+2382454528.index
+2523844055.index
+1881807692.index
+1519093663.index
+1640399929.index

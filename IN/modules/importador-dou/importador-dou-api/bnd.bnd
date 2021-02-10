@@ -1,0 +1,13 @@
+Bundle-Name: importador-dou-api
+Bundle-SymbolicName: br.com.seatecnologia.in.importador.dou.api
+Bundle-Version: 1.0.0
+Export-Package:\
+	br.com.seatecnologia.in.importador.dou.context,\
+	br.com.seatecnologia.in.importador.dou.exception,\
+	br.com.seatecnologia.in.importador.dou.model,\
+	br.com.seatecnologia.in.importador.dou.service,\
+	br.com.seatecnologia.in.importador.dou.service.persistence,\
+	br.com.seatecnologia.in.importador.dou.article,\
+	br.com.seatecnologia.in.importador.dou.article.xml.parser
+-check: EXPORTS
+-includeresource: META-INF/service.xml=../importador-dou-service/service.xml

@@ -1,0 +1,84 @@
+package br.com.seatecnologia.in.submit.jornal.configuration;
+
+import aQute.bnd.annotation.metatype.Meta;
+
+@Meta.OCD(
+	id = "br.com.seatecnologia.in.submit.jornal.configuration.JornalConfiguration"
+)
+
+public interface JornalConfiguration {
+	
+	@Meta.AD(name="Jornal structure Id",
+			description="Id da estrutura de jornais",
+			required=false,
+			deflt="")
+	public String jornalStructureId();
+	
+	@Meta.AD(name="Jornal template Id",
+			description="Id do modelo de jornais",
+			required=false,
+			deflt="")
+	public String jornalTemplateId();
+	
+	@Meta.AD(name="Group Id",
+			description="Group Id do site onde estão os jornais",
+			required=false,
+			deflt="")
+	public String groupId();
+	
+	@Meta.AD(name="Folder Id",
+			description="Folder Id dos jornais",
+			required=false,
+			deflt="")
+	public String folderId();
+	
+	@Meta.AD(name="Folder Id das Imagens",
+			description="Folder Id das imagens dos jornais",
+			required=false,
+			deflt="")
+	public String folderIdImages();
+	
+	@Meta.AD(name="Path da imagem do logo",
+			description="Path da imagem do logo. Ex: \"/opt/liferay/data/logo.png\"",
+			required=false,
+			deflt="/opt/liferay/data/logo.png")
+	public String pathLogo();
+	
+	@Meta.AD(name="Path do script da thumbnail",
+			description="Path do script da thumbnail. Ex: \"/opt/liferay/data/thumbnail.sh\"",
+			required=false,
+			deflt="/opt/liferay/data/thumbnail.sh")
+	public String pathScript();
+	
+	@Meta.AD(name = "from-name",
+			required = false,
+			deflt = "Guilherme Kfouri")
+	public String fromName();
+
+	@Meta.AD(name = "from-address",
+			required = false,
+			deflt = "guiokfouri@gmail.com")
+	public String fromAddress();
+
+	@Meta.AD(name = "subject",
+			required = false,
+			deflt = "subject")
+	public String emailSubject();
+
+	@Meta.AD(name = "body",
+			description = "",
+			required = false,
+			deflt= "body")
+	public String emailBody();
+	
+	@Meta.AD(name = "Email destinatário",
+			required = false,
+			deflt = "guiokfouri@gmail.com")
+	public String emailDest();
+	
+	@Meta.AD(name = "Porta do servidor SMTP",
+			required = false,
+			deflt = "465")
+	public String port();
+	
+}

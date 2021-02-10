@@ -1,0 +1,83 @@
+import java.util.Properties;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+
+import br.com.seatecnologia.kafka.ImportadorFileKafkaProducer;
+import br.com.seatecnologia.kafka.ImportadorXmlKafkaConsumer;
+
+public class KafkaExample {
+	private final String topic;
+	private final Properties props;
+	
+	private final Logger log = Logger.getLogger(KafkaExample.class);
+
+	public KafkaExample() {
+//		String brokers = "kafka.seatecnologia.com.br:9092";
+		String brokers = "localhost:9092";
+//		String brokers = "desenv-mq.in.gov.br:9093";
+//		String brokers = "homo-mq.in.gov.br:9093";
+
+		this.topic = "json.materia.publicada.uniao.dou";
+
+		props = new Properties();
+		props.put("bootstrap.servers", brokers);
+//		props.put("security.protocol", "SSL");
+//		props.put("ssl.truststore.location", "/home/mgsasaki/sea/imprensa/imprensa-kafka/ssl/sea.portal.truststore.jks");
+//		props.put("ssl.truststore.password", "seastore");
+//		props.put("ssl.keystore.location", "/home/mgsasaki/sea/imprensa/imprensa-kafka/ssl/sea.portal.keystore.jks");
+//		props.put("ssl.keystore.password", "seastore");
+//		props.put("ssl.key.password", "seastore");
+//
+//		props.put("ssl.truststore.type", "JKS");
+//		props.put("ssl.keystore.type", "PKCS12");
+
+		log.setLevel(Level.ALL);
+		log.info("Starting...");
+	}
+
+	public void consume(Executor executor) {
+		String deserializer = StringDeserializer.class.getName();
+
+		props.put("group.id", "portal.internet"); // Informação usada pelo consumidor
+		props.put("enable.auto.commit", "false");
+//		props.put("auto.commit.interval.ms", "1000");
+		props.put("auto.offset.reset", "earliest");
+//		props.put("session.timeout.ms", "30000");
+		props.put("key.deserializer", deserializer);
+		props.put("value.deserializer", deserializer);
+
+		ImportadorXmlKafkaConsumer consumer = new ImportadorXmlKafkaConsumer(props, topic);
+		executor.execute(consumer);
+		log.debug("end");
+	}
+
+	public void produce(Executor executor) {
+		String serializer = StringSerializer.class.getName();
+
+		props.put("key.serializer", serializer);
+		props.put("value.serializer", serializer);
+
+		ImportadorFileKafkaProducer producer = new ImportadorFileKafkaProducer(props, topic, "/home/mgsasaki/sea/imprensa/doujson", ".json");
+		executor.execute(producer);
+	}
+
+	public static void main(String[] args) {
+		BasicConfigurator.configure();
+		
+		Logger.getLogger("org.apache.kafka.clients.consumer.internals.Fetcher").setLevel(Level.ERROR);
+		Logger.getLogger("org.apache.kafka.clients.consumer.internals.AbstractCoordinator").setLevel(Level.ERROR);
+
+		KafkaExample c = new KafkaExample();
+		ExecutorService exec = Executors.newCachedThreadPool();
+//		c.consume(exec);
+		c.produce(exec);
+		while (!exec.isTerminated());
+	}
+}

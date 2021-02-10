@@ -1,0 +1,215 @@
+package br.com.seatecnologia.in.boletins.portlet.mail;
+
+import com.liferay.mail.kernel.model.MailMessage;
+import com.liferay.mail.kernel.service.MailServiceUtil;
+import com.liferay.mail.kernel.template.MailTemplate;
+import com.liferay.mail.kernel.template.MailTemplateContext;
+import com.liferay.mail.kernel.template.MailTemplateContextBuilder;
+import com.liferay.mail.kernel.template.MailTemplateFactoryUtil;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.service.CompanyLocalServiceUtil;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+import javax.activation.CommandMap;
+import javax.activation.MailcapCommandMap;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Multipart;
+import javax.mail.Transport;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+
+import org.osgi.service.component.annotations.Reference;
+
+import br.com.seatecnologia.in.boletins.utils.Utils;
+
+public class MailHandler extends MailMessage{
+	
+	private static final long serialVersionUID = 1L;
+	private String fromName;
+	private String fromAddress;
+	private String subject;
+	private String emailsTo;
+	private File[] files;
+	private MailTemplateContext mailTemplateContext;
+	
+	public MailHandler() {
+		//construtor vazios
+	}
+
+	public MailHandler(String fromName, String fromAddress, String subject, String emailsTo, File[] files){
+		setFromName(fromName);
+		setFromAddress(fromAddress);
+		setSubject(subject);
+		setEmailsTo(emailsTo);
+		setFiles(files);
+	}
+	
+	public MailHandler(String fromName, String fromAddress, String subject, String emailsTo, File file){
+		setFromName(fromName);
+		setFromAddress(fromAddress);
+		setSubject(subject);
+		setEmailsTo(emailsTo);
+		File[] files = {file};
+		setFiles(files);
+	}
+	
+	public MailHandler(String fromName, String fromAddress, String subject, String emailsTo){
+		setFromName(fromName);
+		setFromAddress(fromAddress);
+		setSubject(subject);
+		setEmailsTo(emailsTo);
+	}
+	
+	public MailTemplateContext buildMailTemplateContext() {
+		MailTemplateContextBuilder mailTemplateContextBuilder = MailTemplateFactoryUtil.createMailTemplateContextBuilder();	
+		
+		
+		mailTemplateContextBuilder.put(FROM_ADDRESS, fromAddress);
+		mailTemplateContextBuilder.put(FROM_NAME, fromName);
+
+		setMailTemplateContext(mailTemplateContextBuilder.build());
+		return mailTemplateContextBuilder.build();
+	}
+	
+	
+	public static void sendMailMessage(String host, String port, final String username, final String password,
+			String fromAddress,	String fromName, String toAddress, String subject, String htmlBody,
+			Map<String, String> mapInlineImages, MailTemplateContext mailTemplateContext, Locale locale)
+					throws AddressException, MessagingException, IOException {
+		
+		MailcapCommandMap mc = (MailcapCommandMap) CommandMap.getDefaultCommandMap(); 
+		mc.addMailcap("text/html;; x-java-content-handler=com.sun.mail.handlers.text_html"); 
+		mc.addMailcap("text/xml;; x-java-content-handler=com.sun.mail.handlers.text_xml"); 
+		mc.addMailcap("text/plain;; x-java-content-handler=com.sun.mail.handlers.text_plain"); 
+		mc.addMailcap("multipart/*;; x-java-content-handler=com.sun.mail.handlers.multipart_mixed"); 
+		mc.addMailcap("message/rfc822;; x-java-content- handler=com.sun.mail.handlers.message_rfc822"); 
+		
+		try {
+			Transport transport = MailServiceUtil.getSession().getTransport();
+			
+			// creates a new e-mail message
+			Message msg = new MimeMessage(MailServiceUtil.getSession());
+			System.setProperty("mail.mime.charset", "UTF-8");
+			
+			msg.setFrom(new InternetAddress(this.fromAddress, this.fromName));
+			InternetAddress[] toAddresses = { new InternetAddress(this.emailsTo) };
+			msg.setRecipients(Message.RecipientType.TO, toAddresses);
+			msg.setSubject(this.subject);
+			msg.setSentDate(new Date());
+			
+			// Templates
+			MailTemplate subjectTemplate = MailTemplateFactoryUtil.createMailTemplate(this.subject, false);
+			MailTemplate bodyTemplate = MailTemplateFactoryUtil.createMailTemplate(htmlBody, true);
+			this.subject = Utils.escape(subjectTemplate.renderAsString(locale, this.mailTemplateContext)).trim();
+			htmlBody = Utils.escape(bodyTemplate.renderAsString(locale, this.mailTemplateContext)).trim();
+			
+			// creates message part
+			MimeBodyPart messageBodyPart = new MimeBodyPart();
+			messageBodyPart.setContent(htmlBody, "text/html");
+			
+			// creates multi-part
+			Multipart multipart = new MimeMultipart();
+			multipart.addBodyPart(messageBodyPart);
+			
+			// adds inline image attachments
+			if (mapInlineImages != null && mapInlineImages.size() > 0) {
+				Set<String> setImageID = mapInlineImages.keySet();
+				
+				for (String contentId : setImageID) {
+					MimeBodyPart imagePart = new MimeBodyPart();
+					imagePart.setHeader("Content-ID", "<" + contentId + ">");
+					imagePart.setDisposition(MimeBodyPart.INLINE);
+					
+					String imageFilePath = mapInlineImages.get(contentId);
+					try {
+						imagePart.attachFile(imageFilePath);
+					} catch (IOException ex) {
+						ex.printStackTrace();
+					}
+					
+					multipart.addBodyPart(imagePart);
+				}
+			}
+			
+			msg.setContent(multipart);
+			
+	        transport.connect();
+	        transport.sendMessage(msg, msg.getAllRecipients());
+	        transport.close();
+			
+		}catch(Exception e) {
+			e.printStackTrace();
+			_log.error(e);
+		}
+    }
+	
+	public String getFromName() {
+		return fromName;
+	}
+	
+	public void setFromName(String fromName) {
+		this.fromName = fromName;
+	}
+	
+	public String getFromAddress() {
+		return fromAddress;
+	}
+	
+	public void setFromAddress(String fromAddress) {
+		this.fromAddress = fromAddress;
+	}
+	
+	public String getEmailsTo() {
+		return emailsTo;
+	}
+	
+	public String getSubject() {
+		return subject;
+	}
+	
+	public void setSubject(String subject) {
+		this.subject = subject;
+	}
+	
+	public void setEmailsTo(String emailsTo) {
+		this.emailsTo = emailsTo;
+	}
+	
+	public File[] getFiles() {
+		return files;
+	}
+
+	public void setFiles(File[] files) {
+		this.files = files;
+	}
+
+	public MailTemplateContext getMailTemplateContext() {
+		return mailTemplateContext;
+	}
+	
+	public void setMailTemplateContext(MailTemplateContext mailTemplateContext) {
+		this.mailTemplateContext = mailTemplateContext;
+	}
+	
+	private static final String FROM_ADDRESS = "[$FROM_ADDRESS$]";
+	private static final String FROM_NAME = "[$FROM_NAME$]";
+	
+	final private static Log _log = LogFactoryUtil.getLog(MailHandler.class);
+	
+	@Reference
+	private CompanyLocalServiceUtil _companyLocalService;
+
+	@Reference
+	private MailServiceUtil _mailService;
+}

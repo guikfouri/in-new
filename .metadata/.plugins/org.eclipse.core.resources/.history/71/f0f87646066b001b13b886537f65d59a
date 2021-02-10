@@ -1,0 +1,239 @@
+package br.com.seatecnologia.in.sigrhuser.usuarios;
+
+import com.liferay.petra.string.StringPool;
+import com.liferay.portal.configuration.metatype.bnd.util.ConfigurableUtil;
+import com.liferay.portal.kernel.dao.orm.DynamicQuery;
+import com.liferay.portal.kernel.dao.orm.RestrictionsFactoryUtil;
+import com.liferay.portal.kernel.json.JSONArray;
+import com.liferay.portal.kernel.json.JSONFactoryUtil;
+import com.liferay.portal.kernel.json.JSONObject;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.model.Contact;
+import com.liferay.portal.kernel.model.Phone;
+import com.liferay.portal.kernel.model.User;
+import com.liferay.portal.kernel.service.ContactLocalServiceUtil;
+import com.liferay.portal.kernel.service.PhoneLocalServiceUtil;
+import com.liferay.portal.kernel.service.ServiceContext;
+import com.liferay.portal.kernel.service.UserLocalServiceUtil;
+import com.liferay.portal.kernel.util.PortalUtil;
+import com.liferay.portal.kernel.util.Validator;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import org.apache.commons.io.FileUtils;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
+
+import br.com.seatecnologia.in.sigrhuser.configuration.SIGRHConfiguration;
+import br.com.seatecnologia.in.sigrhuser.model.Usuario;
+import br.com.seatecnologia.in.sigrhuser.utils.CustomFieldUtil;
+import br.com.seatecnologia.in.sigrhuser.utils.UsuarioUtil;
+
+/**
+ * 
+ * @author arthur-neves
+ *
+ */
+@Component(configurationPid = "br.com.seatecnologia.in.sigrhuser.configuration.SIGRHConfiguration")
+public class GerenciarUsuarios {
+
+	private static JSONArray users;
+	private static SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
+	private static volatile SIGRHConfiguration _sigrhConfiguration;
+	final private static Log log = LogFactoryUtil.getLog(GerenciarUsuarios.class);
+
+	/**
+	 * Recebe o arquivo JSON e seta na variável users.
+	 * @throws Exception
+	 */
+	public static void setUsers() throws Exception {
+
+		try {
+			File json = new File(_sigrhConfiguration.usersUrl());
+			String responseJson = FileUtils.readFileToString(json, "UTF-8");
+
+			JSONObject usersJSON = JSONFactoryUtil.createJSONObject(responseJson);
+			GerenciarUsuarios.users = usersJSON.getJSONArray("users");
+
+			treatUserData();
+		} catch (Exception e) {
+			log.error(e.getMessage());
+		}
+	}
+
+	/**
+	 * Trata os dados através da variável users e popula a model do Usuario;
+	 * Define se deve criar novo Usuario ou fazer update no banco local.
+	 * @throws Exception
+	 */
+	public static void treatUserData() throws Exception {
+		Usuario usuario = new Usuario();
+
+		if (GerenciarUsuarios.users == null)
+			GerenciarUsuarios.setUsers();
+
+		for (int i = 0; i < GerenciarUsuarios.users.length(); ++i) {
+			JSONObject userJSON = GerenciarUsuarios.users.getJSONObject(i);
+
+			if (Validator.isNotNull(userJSON.getString("dataNascimento"))) {
+				usuario = new Usuario(userJSON.getString("nome"), userJSON.getString("userEmail"),
+						userJSON.getString("telefone"), userJSON.getString("cargo"), userJSON.getString("cpf"),
+						userJSON.getString("ramal"), userJSON.getString("sexo"),
+						formatter.parse(userJSON.getString("dataNascimento")));
+			} else {
+				usuario = new Usuario(userJSON.getString("nome"), userJSON.getString("userEmail"),
+						userJSON.getString("telefone"), userJSON.getString("cargo"), userJSON.getString("cpf"),
+						userJSON.getString("ramal"), userJSON.getString("sexo"));
+			}
+
+			// DynamicQuery com o nome completo do User para decidir entre create/update
+			DynamicQuery userByFullNameQuery = UserLocalServiceUtil.dynamicQuery()
+					//.add(RestrictionsFactoryUtil.eq("firstName", usuario.getFirstName()))
+					//.add(RestrictionsFactoryUtil.eq("lastName", usuario.getLastName()));
+					.add(RestrictionsFactoryUtil.eq("emailAddress",   usuario.getEmail()));
+			List<User> entries = UserLocalServiceUtil.dynamicQuery(userByFullNameQuery);
+
+			if (entries.size() == 0) {
+				createUser(usuario);
+
+			} else if (entries.size() == 1) {
+				updateUser(entries.get(0), usuario);
+
+			} else {
+				for (User user : entries) {
+					if (user.getBirthday() == usuario.getDataNascimento())
+						updateUser(user, usuario);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Realiza o update do usuário no banco de dados.
+	 * @param localUser usuário do banco local que sofrerá o update
+	 * @param usuario usuário da model populada pelo JSON
+	 * @throws Exception
+	 */
+	public static void updateUser(User localUser, Usuario usuario) throws Exception {
+
+		if (Validator.isNotNull(usuario.getEmail()) && !usuario.isCargoNaoInformado()) {
+			try {
+				Contact userContact = localUser.getContact();
+				Phone phone = null;
+				List<Phone> userPhones = localUser.getPhones();
+
+				localUser.setFirstName(usuario.getFirstName());
+				localUser.setLastName(usuario.getLastName());
+				//localUser.setScreenName(UsuarioUtil.removeStringAccents(
+				//		UsuarioUtil.genScreenName(usuario.getFirstName(), usuario.getLastName())) + stringBirthday);
+				localUser.setJobTitle(usuario.getCargo());
+				userContact.setMale(usuario.getIsMale());
+
+				if (Validator.isNotNull(usuario.getEmail()))
+					localUser.setEmailAddress(usuario.getEmail());
+
+				if (Validator.isNotNull(usuario.getDataNascimento()))
+					userContact.setBirthday(usuario.getDataNascimento());
+
+				if (userPhones.size() > 0 && Validator.isNotNull(usuario.getTelefone())) {
+					phone = userPhones.get(0);
+					phone.setNumber(usuario.getTelefone());
+					PhoneLocalServiceUtil.updatePhone(phone);
+				}
+
+				CustomFieldUtil.insertCustomFieldValue(localUser, "cpf", usuario.getCpf());
+				CustomFieldUtil.insertCustomFieldValue(localUser, "ramal", usuario.getRamal());
+
+				ContactLocalServiceUtil.updateContact(userContact);
+				UserLocalServiceUtil.updateUser(localUser);
+
+				log.info("User: " + localUser.getFullName() + "// birthday: " + localUser.getBirthday() + "// email: "
+						+ localUser.getEmailAddress() + "// screencname: " + localUser.getScreenName());
+
+			} catch (Exception e) {
+				log.error(e.getMessage());
+			}
+		} 
+	}
+
+	/**
+	 * Cria um novo usuário no banco de dados através dos dados populados na model Usuario.
+	 * @param usuario usuário da model populada pelo JSON
+	 * @throws Exception
+	 */
+	public static void createUser(Usuario usuario) throws Exception {
+
+		Integer birthdayMonth = 11;
+		Integer birthdayDay = 1;
+		Integer birthdayYear = 1970;
+
+		if (Validator.isNotNull(usuario.getDataNascimento())) {
+			birthdayDay = UsuarioUtil.separateDate(usuario.getDataNascimento()).get(0);
+			birthdayMonth = UsuarioUtil.separateDate(usuario.getDataNascimento()).get(1);
+			birthdayYear = UsuarioUtil.separateDate(usuario.getDataNascimento()).get(2);
+		}
+
+		long creatorId = 0;
+		boolean autoPassword = false;
+		String firstName = usuario.getFirstName();
+		String lastName = usuario.getLastName();
+		boolean isMale = usuario.getIsMale();
+		String password1 = UsuarioUtil.genRandPassword(usuario.getFirstName(), usuario.getLastName());
+		String password2 = UsuarioUtil.genRandPassword(usuario.getFirstName(), usuario.getLastName());
+		boolean autoScreenName = false;
+		String birthDay = birthdayDay.toString() + birthdayMonth.toString() + birthdayYear.toString();
+		String screenName = UsuarioUtil.removeStringAccents(
+				UsuarioUtil.genScreenName(usuario.getFirstName(), usuario.getLastName())) + birthDay;
+		String emailAddress = usuario.getEmail();
+		String openId = StringPool.BLANK;
+		Locale locale = new Locale("pt", "BR");
+		String middleName = StringPool.BLANK;
+		int prefixId = 0;
+		int suffixId = 0;
+		String jobTitle = StringPool.BLANK;
+		long[] groupIds = null;
+		long[] organizationIds = null;
+		long[] roleIds = null;
+		long[] userGroupIds = null;
+		boolean sendEmail = false;
+		ServiceContext serviceContext = new ServiceContext();
+
+		try {
+			if (Validator.isNotNull(usuario.getEmail()) && Validator.isNotNull(usuario.getCargo()) && !usuario.isCargoNaoInformado()) {
+				UsuarioUtil.createNewUser(creatorId, PortalUtil.getDefaultCompanyId(), autoPassword, password1,
+						password2, autoScreenName, screenName, emailAddress, 0, openId, locale, firstName, middleName,
+						lastName, prefixId, suffixId, isMale, birthdayMonth, birthdayDay, birthdayYear, jobTitle,
+						groupIds, organizationIds, roleIds, userGroupIds, sendEmail, serviceContext, usuario.getCpf(),
+						usuario.getRamal(), usuario.getTelefone());
+
+				log.info("Created User: " + usuario.getFullName());
+			} else {/*
+				 * else { UsuarioUtil.createNewUser(creatorId, PortalUtil.getDefaultCompanyId(),
+				 * autoPassword, password1, password2, autoScreenName, screenName,
+				 * UsuarioUtil.genRandomEmail(), 0, openId, locale, firstName, middleName,
+				 * lastName, prefixId, suffixId, isMale, birthdayMonth, birthdayDay,
+				 * birthdayYear, jobTitle, groupIds, organizationIds, roleIds, userGroupIds,
+				 * sendEmail, serviceContext, usuario.getCpf(), usuario.getRamal(),
+				 * usuario.getTelefone()); }
+				 */
+
+				log.info("User not created: " + usuario.getFullName() + "\n User need email and jobTitle");
+			}
+
+		} catch (Exception e) {
+			log.error(e.getMessage());
+		}
+	}
+
+	@Activate
+	@Modified
+	protected void activate(Map<String, Object> properties) {
+		_sigrhConfiguration = ConfigurableUtil.createConfigurable(SIGRHConfiguration.class, properties);
+	}
+}

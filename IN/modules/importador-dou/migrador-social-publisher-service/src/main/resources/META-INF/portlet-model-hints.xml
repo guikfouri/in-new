@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<model-hints>
+	<model name="br.com.seatecnologia.migrador.social.publisher.model.ItemPublicacao">
+		<field name="itemPublicacaoId" type="long" />
+		<field name="entryId" type="long" />
+		<field name="postId" type="String" />
+		<field name="publishDate" type="Date" />
+		<field name="modifiedDate" type="Date" />
+		<field name="socialNetwork" type="int" />
+		<field name="itemMigracaoId" type="long" />
+	</model>
+</model-hints>

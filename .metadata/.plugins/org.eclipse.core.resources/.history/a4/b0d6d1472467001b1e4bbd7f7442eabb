@@ -1,0 +1,13 @@
+package br.com.seatecnologia.in.boletins.configuration;
+
+import com.liferay.configuration.admin.display.ConfigurationFormRenderer;
+
+import org.osgi.service.component.annotations.Component;
+
+@Component(
+		configurationPid = "br.com.seatecnologia.in.boletins.configuration.BoletimConfiguration",
+		immediate = true,
+		service = ConfigurationFormRenderer.class)
+public class BoletimConfigurationFormRenderer implements ConfigurationFormRenderer{
+
+}

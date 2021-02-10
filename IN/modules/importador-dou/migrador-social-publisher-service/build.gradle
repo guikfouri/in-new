@@ -1,0 +1,22 @@
+dependencies {
+	compileOnly group: "biz.aQute.bnd", name: "biz.aQute.bndlib", version: "3.5.0"
+	compileOnly group: "com.liferay", name: "com.liferay.portal.spring.extender.api", version: "3.0.0"
+	compileOnly group: "com.liferay.portal", name: "com.liferay.portal.kernel", version: "3.0.0"
+
+	compileOnly group: "com.liferay", name: "com.liferay.asset.display.page.api", version: "2.0.0"
+	compileOnly group: "com.liferay", name: "com.liferay.bnd.util", version: "1.0.1"
+	compileOnly group: "com.liferay", name: "com.liferay.journal.api", version: "3.0.0"
+	compileOnly group: "com.liferay", name: "com.liferay.petra.string", version: "2.1.1"
+
+	compileOnly group: "com.restfb", name: "restfb", version : "2.7.0"
+	compileOnly group: "org.twitter4j", name: "twitter4j-core", version: "4.0.4"
+
+	compileOnly project(":modules:importador-dou:migrador-social-publisher-api")
+	compileOnly project(":modules:migrador:migrador-api")
+}
+
+buildService {
+	apiDir = "../migrador-social-publisher-api/src/main/java"
+}
+
+group = "br.com.seatecnologia.migrador.social.publisher"

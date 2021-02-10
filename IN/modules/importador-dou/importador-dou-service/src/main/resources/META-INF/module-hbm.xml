@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping auto-import="false" default-lazy="false">
+	<import class="br.com.seatecnologia.in.importador.dou.model.ItemImportacao" />
+	<class name="br.com.seatecnologia.in.importador.dou.model.impl.ItemImportacaoImpl" table="IN_ItemImportacao">
+		<id name="itemImportacaoId" type="long">
+			<generator class="assigned" />
+		</id>
+		<property name="tipoItem" type="com.liferay.portal.dao.orm.hibernate.StringType" />
+		<property name="dataImportacao" type="org.hibernate.type.TimestampType" />
+		<property name="identificadorAtualizacao" type="com.liferay.portal.dao.orm.hibernate.StringType" />
+		<property name="importado" type="com.liferay.portal.dao.orm.hibernate.BooleanType" />
+	</class>
+</hibernate-mapping>

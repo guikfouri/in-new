@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename resource &apos;kafka-example&apos; to &apos;kafka&apos;" description="Rename resource &apos;kafka-example&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="/kafka-example" name="kafka" stamp="1612900497789" updateReferences="true"/>
+</session>

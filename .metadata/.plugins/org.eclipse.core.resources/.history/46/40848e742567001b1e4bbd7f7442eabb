@@ -1,0 +1,109 @@
+package br.com.seatecnologia.in.boletins.configuration;
+
+import com.liferay.configuration.admin.display.ConfigurationFormRenderer;
+import com.liferay.frontend.taglib.servlet.taglib.util.JSPRenderer;
+import com.liferay.portal.configuration.metatype.bnd.util.ConfigurableUtil;
+import com.liferay.portal.kernel.util.ParamUtil;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+
+@Component(
+		configurationPid = "br.com.seatecnologia.in.boletins.configuration.BoletimConfiguration",
+		immediate = true,
+		service = ConfigurationFormRenderer.class)
+public class BoletimConfigurationFormRenderer implements ConfigurationFormRenderer{
+
+	@Override
+    public String getPid() {
+        return "br.com.seatecnologia.in.boletins.configuration.BoletimConfiguration";
+    }
+	
+	@Override
+    public void render(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		BoletimConfigurationDisplayContext boletimConfigurationDisplayContext = 
+	    		new BoletimConfigurationDisplayContext();
+		
+		boletimConfigurationDisplayContext.set_groupId(_boletimConfiguration.groupId());
+		boletimConfigurationDisplayContext.set_tempPath(_boletimConfiguration.tempPath());
+		boletimConfigurationDisplayContext.set_folderIdDocumento(_boletimConfiguration.folderIdDocumento());
+		boletimConfigurationDisplayContext.set_elasticSearchUrl(_boletimConfiguration.elasticSearchUrl());
+		boletimConfigurationDisplayContext.set_boletimPageName(_boletimConfiguration.boletimPageName());
+
+		boletimConfigurationDisplayContext.set_fromName(_boletimConfiguration.fromName());
+		boletimConfigurationDisplayContext.set_fromAddress(_boletimConfiguration.fromAddress());
+		boletimConfigurationDisplayContext.set_toAddress(_boletimConfiguration.toAddress());
+		
+		boletimConfigurationDisplayContext.set_host(_boletimConfiguration.host());
+		boletimConfigurationDisplayContext.set_port(_boletimConfiguration.port());
+		boletimConfigurationDisplayContext.set_username(_boletimConfiguration.username());
+		boletimConfigurationDisplayContext.set_password(_boletimConfiguration.password());
+
+		boletimConfigurationDisplayContext.set_pathLogo(_boletimConfiguration.pathLogo());
+	}
+	
+	@Override
+    public Map<String, Object> getRequestParameters(
+            HttpServletRequest request) {
+		
+        Map<String, Object> params = new HashMap<>();
+        String groupId = ParamUtil.getString(request, "preferences--groupId--");
+		String tempPath = ParamUtil.getString(request, "preferences--tempPath--");
+		String folderIdDocumento = ParamUtil.getString(request, "preferences--folderIdDocumento--");
+		String elasticSearchUrl = ParamUtil.getString(request, "preferences--elasticSearchUrl--");
+		String boletimPageName = ParamUtil.getString(request, "preferences--boletimPageName--");
+        String fromName = ParamUtil.getString(request, "preferences--fromName--");
+		String fromAddress = ParamUtil.getString(request, "preferences--fromAddress--");
+		String toAddress = ParamUtil.getString(request, "preferences--toAddress--");
+		String host = ParamUtil.getString(request, "preferences--host--");
+		String port = ParamUtil.getString(request, "preferences--port--");
+		String username = ParamUtil.getString(request, "preferences--username--");
+		String password = ParamUtil.getString(request, "preferences--password--");
+		String pathLogo = ParamUtil.getString(request, "preferences--pathLogo--");
+		params.put("groupId", groupId);
+		params.put("tempPath", tempPath);
+		params.put("folderIdDocumento", folderIdDocumento);
+		params.put("elasticSearchUrl", elasticSearchUrl);
+		params.put("boletimPageName", boletimPageName);
+		params.put("fromName", fromName);
+		params.put("fromAddress", fromAddress);
+		params.put("emailDest", toAddress);
+		params.put("host", host);
+		params.put("port", port);
+		params.put("username", username);
+		params.put("password", password);
+		params.put("pathlogo", pathLogo);
+
+        return params;
+	}
+	
+	@Activate
+	@Modified
+	public void activate(Map<String, Object> properties) {
+		_boletimConfiguration =
+	        ConfigurableUtil.createConfigurable(
+	        		BoletimConfiguration.class,
+	            properties);
+	}
+
+	private volatile BoletimConfiguration _boletimConfiguration;
+	
+	@Reference
+	private JSPRenderer _jspRenderer;
+	
+	@Reference(
+		target = "(osgi.web.symbolicname=br.com.seatecnologia.in.submit.jornal)",
+		unbind = "-"
+	)
+	private ServletContext _servletContext;
+}

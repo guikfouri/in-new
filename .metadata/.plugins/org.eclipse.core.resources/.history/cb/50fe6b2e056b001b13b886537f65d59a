@@ -1,0 +1,17 @@
+package br.com.seatecnologia.in.sigrhuser.configuration;
+
+import aQute.bnd.annotation.metatype.Meta;
+
+@Meta.OCD(
+		id = "br.com.seatecnologia.in.sigrhuser.configuration.SIGRHConfiguration",
+		name = "SIGRH Integration Configuration"
+)
+public interface SIGRHConfiguration {
+	
+	@Meta.AD(
+			name = "Caminho da URL de envio da lista de Users",
+			required = false
+	)
+	
+	public String usersUrl();
+}

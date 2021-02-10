@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename resource &apos;modules/migrador-conteudo-7_1&apos; to &apos;migrador&apos;" description="Rename resource &apos;migrador-conteudo-7_1&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="migrador-conteudo-7_1" name="migrador" stamp="1612878030438" updateReferences="true"/>
+</session>

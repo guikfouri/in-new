@@ -1,0 +1,6 @@
+Bundle-Name: importador-dou-xml-parser
+Bundle-SymbolicName: br.com.seatecnologia.in.importador.dou.xml.parser
+Bundle-Version: 1.0.0
+Export-Package: br.com.seatecnologia.in.importador.dou.xml.parser.jsoup
+Conditional-Package: \
+	org.jsoup.*

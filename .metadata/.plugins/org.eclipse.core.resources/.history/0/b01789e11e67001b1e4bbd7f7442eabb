@@ -1,0 +1,119 @@
+package br.com.seatecnologia.in.submit.jornal.configuration;
+
+import com.liferay.configuration.admin.display.ConfigurationFormRenderer;
+import com.liferay.frontend.taglib.servlet.taglib.util.JSPRenderer;
+import com.liferay.portal.configuration.metatype.bnd.util.ConfigurableUtil;
+import com.liferay.portal.kernel.util.ParamUtil;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+
+@Component(
+		configurationPid = "br.com.seatecnologia.in.submit.jornal.configuration.JornalConfiguration",
+		immediate = true,
+		service = ConfigurationFormRenderer.class)
+public class JornalConfigurationFormRenderer implements ConfigurationFormRenderer{
+
+	@Override
+    public String getPid() {
+        return "br.com.seatecnologia.in.submit.jornal.configuration.JornalConfiguration";
+    }
+	
+	@Override
+    public void render(HttpServletRequest request, HttpServletResponse response) throws IOException {
+           
+		JornalConfigurationDisplayContext jornalConfigurationDisScriptContext = 
+	    		new JornalConfigurationDisplayContext();
+		
+		jornalConfigurationDisScriptContext.set_groupId(_jornalConfiguration.groupId());
+		jornalConfigurationDisScriptContext.set_folderId(_jornalConfiguration.folderId());
+		jornalConfigurationDisScriptContext.set_folderIdImages(_jornalConfiguration.folderIdImages());
+		jornalConfigurationDisScriptContext.set_structureId(_jornalConfiguration.jornalStructureId());
+		jornalConfigurationDisScriptContext.set_templateId(_jornalConfiguration.jornalTemplateId());
+		jornalConfigurationDisScriptContext.set_pathLogo(_jornalConfiguration.pathLogo());
+		jornalConfigurationDisScriptContext.set_pathScript(_jornalConfiguration.pathScript());
+	    
+		jornalConfigurationDisScriptContext.set_fromName(_jornalConfiguration.fromName());
+		jornalConfigurationDisScriptContext.set_fromAddress(_jornalConfiguration.fromAddress());
+		jornalConfigurationDisScriptContext.set_emailDest(_jornalConfiguration.emailDest());
+
+		jornalConfigurationDisScriptContext.set_emailSubject(_jornalConfiguration.emailSubject());
+		jornalConfigurationDisScriptContext.set_emailBody(_jornalConfiguration.emailBody());
+		
+		jornalConfigurationDisScriptContext.set_port(_jornalConfiguration.port());
+	    
+	    request.setAttribute(JornalConfigurationDisplayContext.class.getName(), jornalConfigurationDisScriptContext);
+		
+		 _jspRenderer.renderJSP( _servletContext, request, response,
+				    "/configuration/email.jsp");
+    }
+	
+	@Override
+    public Map<String, Object> getRequestParameters(
+            HttpServletRequest request) {
+
+        Map<String, Object> params = new HashMap<>();
+        
+        String groupId = ParamUtil.getString(request, "preferences--groupId--");
+        String folderId = ParamUtil.getString(request, "preferences--folderId--");
+        String folderIdImages = ParamUtil.getString(request, "preferences--folderIdImages--");
+		String structureId = ParamUtil.getString(request, "preferences--structureId--");
+		String templateId = ParamUtil.getString(request, "preferences--templateId--");
+		String pathLogo = ParamUtil.getString(request, "preferences--pathLogo--");
+		String pathScript = ParamUtil.getString(request, "preferences--pathScript--");
+		params.put("groupId", groupId);
+		params.put("folderId", folderId);
+		params.put("folderIdImages", folderIdImages);
+		params.put("jornalStructureId", structureId);
+		params.put("jornalTemplateId", templateId);
+		params.put("pathLogo", pathLogo);
+		params.put("pathScript", pathScript);
+
+        String fromName = ParamUtil.getString(request, "preferences--fromName--");
+		String fromAddress = ParamUtil.getString(request, "preferences--fromAddress--");
+		String emailDest = ParamUtil.getString(request, "preferences--emailDest--");
+		params.put("fromName", fromName);
+		params.put("fromAddress", fromAddress);
+		params.put("emailDest", emailDest);
+
+		String emailSubject = ParamUtil.getString(request, "preferences--emailSubject--");
+		String emailBody = ParamUtil.getString(request, "email");
+		params.put("emailSubject", emailSubject);
+		params.put("emailBody", emailBody);
+		
+        String port = ParamUtil.getString(request, "preferences--port--");
+		params.put("port", port);
+		
+        return params;
+    }
+	
+	@Activate
+	@Modified
+	public void activate(Map<String, Object> properties) {
+		_jornalConfiguration =
+	        ConfigurableUtil.createConfigurable(
+	        		JornalConfiguration.class,
+	            properties);
+	}
+
+	private volatile JornalConfiguration _jornalConfiguration;
+	
+	@Reference
+	private JSPRenderer _jspRenderer;
+	
+	@Reference(
+		target = "(osgi.web.symbolicname=br.com.seatecnologia.in.submit.jornal)",
+		unbind = "-"
+	)
+	private ServletContext _servletContext;
+}

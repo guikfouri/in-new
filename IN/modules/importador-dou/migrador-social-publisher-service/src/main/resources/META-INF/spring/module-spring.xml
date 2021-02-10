@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<beans
+	default-destroy-method="destroy"
+	default-init-method="afterPropertiesSet"
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd"
+>
+	<bean class="br.com.seatecnologia.migrador.social.publisher.service.impl.ItemPublicacaoLocalServiceImpl" id="br.com.seatecnologia.migrador.social.publisher.service.ItemPublicacaoLocalService" />
+	<bean class="br.com.seatecnologia.migrador.social.publisher.service.persistence.impl.ItemPublicacaoPersistenceImpl" id="br.com.seatecnologia.migrador.social.publisher.service.persistence.ItemPublicacaoPersistence" parent="basePersistence" />
+</beans>

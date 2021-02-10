@@ -1,0 +1,90 @@
+package br.com.seatecnologia.in.boletins.configuration;
+
+import aQute.bnd.annotation.metatype.Meta;
+
+
+@Meta.OCD(
+	id = "br.com.seatecnologia.in.boletins.configuration.BoletimConfiguration"
+)
+
+public interface BoletimConfiguration {
+	
+	@Meta.AD(name = "from-name",
+			description = "Nome do remetente",
+			required = false,
+			deflt = "Boletim de Serviço")
+	public String fromName();
+
+	@Meta.AD(name = "from-address",
+			description = "Email do remetente",
+			required = false,
+			deflt = "email@gmail.com")
+	public String fromAddress();
+
+	@Meta.AD(name = "to-address",
+			description = "Emails dos destinatários separados por vírgula",
+			required = false,
+			deflt = "email2@protonmail.com")
+	public String toAddress();
+	
+	@Meta.AD(name = "files-temp-path",
+			description = "Caminho para o temp do servidor",
+			required = false,
+			deflt = "/tmp")
+	public String tempPath();
+	
+	@Meta.AD(name = "GroupId",
+			description = "GroupId de Documentos para o arquivo PDF",
+			required = false,
+			deflt = "")
+	public String groupId();
+	
+	@Meta.AD(name = "FolderId",
+			description = "FolderId de Documentos para o arquivo PDF",
+			required = false,
+			deflt = "")
+	public String folderIdDocumento();
+	
+	@Meta.AD(
+			name = "URL do Elastic Search",
+			description = "URL do elastic search para se realizar a pesquisa. ex.: http://localhost:9200/liferay-20099/, sendo liferay-20099 o índice",
+			required = false,
+			deflt = ""
+			)
+	public String elasticSearchUrl();
+	
+	@Meta.AD(
+			name = "Pagina Adicionar Boletins",
+			description = "Nome da pagina de adição dos boletins",
+			required = false,
+			deflt = "Adicionar Boletim de Serviço"
+			)
+	public String boletimPageName();
+	
+	@Meta.AD(name = "Host do servidor SMTP",
+			required = false,
+			deflt = "smtp.gmail.com")
+	public String host();
+	
+	@Meta.AD(name = "Porta do servidor SMTP",
+			required = false,
+			deflt = "465")
+	public String port();
+	
+	@Meta.AD(name = "Username do servidor SMTP",
+			required = false,
+			deflt = "guiokfouri@gmail.com")
+	public String username();
+	
+	@Meta.AD(name = "Senha do servidor SMTP",
+			required = false,
+			deflt = "guiokfouri@gmail.com")
+	public String password();
+	
+	@Meta.AD(name="Path da imagem do logo",
+			description="Path da imagem do logo. Ex: \"/opt/liferay/data/logo.png\"",
+			required=false,
+			deflt="/opt/liferay/data/logo.png")
+	public String pathLogo();
+
+}

@@ -1,0 +1,9 @@
+Bundle-Name: importador-dou-kafka-service
+Bundle-SymbolicName: br.com.seatecnologia.in.importador.dou.kafka
+Bundle-Version: 1.0.0
+Conditional-Package: \
+	org.apache.kafka.common.*,\
+	org.apache.kafka.clients.*,\
+	net.jpountz.lz4.*,\
+	net.jpountz.util.*,\
+	net.jpountz.xxhash.*

@@ -1,0 +1,5 @@
+Bundle-Name: importador-dou-file-service
+Bundle-SymbolicName: br.com.seatecnologia.in.importador.dou.file.service
+Bundle-Version: 1.0.0
+Conditional-Package: \
+	org.jsoup.*

@@ -1,0 +1,695 @@
+package br.com.seatecnologia.in.submit.jornal.portlet;
+
+import com.liferay.asset.kernel.model.AssetCategory;
+import com.liferay.asset.kernel.model.AssetVocabulary;
+import com.liferay.asset.kernel.service.AssetVocabularyLocalServiceUtil;
+import com.liferay.document.library.kernel.model.DLFileEntry;
+import com.liferay.document.library.kernel.model.DLFileEntryType;
+import com.liferay.document.library.kernel.service.DLFileEntryLocalService;
+import com.liferay.document.library.kernel.service.DLFileEntryTypeLocalServiceUtil;
+import com.liferay.dynamic.data.mapping.model.DDMStructure;
+import com.liferay.dynamic.data.mapping.model.DDMTemplate;
+import com.liferay.dynamic.data.mapping.service.DDMStructureLocalServiceUtil;
+import com.liferay.dynamic.data.mapping.service.DDMTemplateLocalServiceUtil;
+import com.liferay.journal.model.JournalArticle;
+import com.liferay.journal.model.JournalFolder;
+import com.liferay.journal.service.JournalArticleLocalServiceUtil;
+import com.liferay.journal.service.JournalFolderLocalServiceUtil;
+import com.liferay.mail.kernel.service.MailService;
+import com.liferay.mail.kernel.service.MailServiceUtil;
+import com.liferay.mail.kernel.template.MailTemplate;
+import com.liferay.mail.kernel.template.MailTemplateContext;
+import com.liferay.mail.kernel.template.MailTemplateFactoryUtil;
+import com.liferay.portal.configuration.metatype.bnd.util.ConfigurableUtil;
+import com.liferay.portal.kernel.exception.PortalException;
+import com.liferay.portal.kernel.exception.SystemException;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.portlet.bridges.mvc.MVCPortlet;
+import com.liferay.portal.kernel.service.CompanyLocalService;
+import com.liferay.portal.kernel.service.ServiceContext;
+import com.liferay.portal.kernel.service.ServiceContextFactory;
+import com.liferay.portal.kernel.theme.ThemeDisplay;
+import com.liferay.portal.kernel.upload.UploadPortletRequest;
+import com.liferay.portal.kernel.util.FileUtil;
+import com.liferay.portal.kernel.util.MimeTypesUtil;
+import com.liferay.portal.kernel.util.ParamUtil;
+import com.liferay.portal.kernel.util.PortalUtil;
+import com.liferay.portal.kernel.util.PwdGenerator;
+import com.liferay.portal.kernel.util.Validator;
+import com.liferay.portal.kernel.util.WebKeys;
+import com.liferay.portal.kernel.workflow.WorkflowConstants;
+import com.liferay.portal.kernel.xml.Document;
+import com.liferay.portal.kernel.xml.DocumentException;
+import com.liferay.portal.kernel.xml.Element;
+import com.liferay.portal.kernel.xml.SAXReaderUtil;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
+
+import javax.activation.CommandMap;
+import javax.activation.MailcapCommandMap;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Multipart;
+import javax.mail.Transport;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.portlet.ActionRequest;
+import javax.portlet.ActionResponse;
+import javax.portlet.Portlet;
+import javax.portlet.PortletException;
+import javax.portlet.ProcessAction;
+import javax.portlet.RenderRequest;
+import javax.portlet.RenderResponse;
+
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+
+import br.com.seatecnologia.in.submit.jornal.configuration.JornalConfiguration;
+import br.com.seatecnologia.in.submit.jornal.constants.SubmitJornalPortletKeys;
+import br.com.seatecnologia.in.submit.jornal.model.Jornal;
+import br.com.seatecnologia.in.submit.jornal.utils.Utils;
+
+/**
+ * @author kfouri
+ */
+@Component(
+	configurationPid = "br.com.seatecnologia.in.submit.jornal.configuration.JornalConfiguration",
+	immediate = true,
+	property = {
+		"com.liferay.portlet.display-category=category.sample",
+		"com.liferay.portlet.instanceable=true",
+		"javax.portlet.init-param.template-path=/",
+		"javax.portlet.init-param.view-template=/view.jsp",
+		"javax.portlet.name=" + SubmitJornalPortletKeys.SubmitJornal,
+		"javax.portlet.resource-bundle=content.Language",
+		"javax.portlet.security-role-ref=power-user,user"
+	},
+	service = Portlet.class
+)
+public class SubmitJornalPortlet extends MVCPortlet {
+	
+	static public final Locale BRAZIL = new Locale("pt", "BR");
+	static public final Locale US = new Locale("en", "US");	
+	
+	@Override
+	public void doView(RenderRequest renderRequest, RenderResponse renderResponse)
+			throws IOException, PortletException {
+		super.doView(renderRequest, renderResponse);
+	}
+	
+	@ProcessAction(name="submitJornal")
+	public void submitJornal(ActionRequest actionRequest, ActionResponse actionResponse) throws IOException, SystemException, PortalException, DocumentException {
+		try {
+			// Data from front
+			String titulo           = ParamUtil.getString(actionRequest, "jornal-titulo");
+			String subtitulo        = ParamUtil.getString(actionRequest, "jornal-subtitulo");
+			String dataUnformatted  = ParamUtil.getString(actionRequest, "jornal-data");
+			String retranca         = ParamUtil.getString(actionRequest, "jornal-retranca");
+			String content 		    = ParamUtil.getString(actionRequest, "jornal-content");
+			String destaque  		= ParamUtil.getString(actionRequest, "jornal-destaque");
+			
+			// Set date
+			Date date = new SimpleDateFormat("dd/MM/yyyy").parse(dataUnformatted);
+			SimpleDateFormat dateLongFormat = new SimpleDateFormat("yyyy-MM-dd");
+	        String data = dateLongFormat.format(date.getTime());
+	        Calendar calendarDate = Calendar.getInstance();
+	        calendarDate.setTime(date);
+	        
+	        // Get configuration api fields
+	        long groupId        = Long.parseLong(_jornalConfiguration.groupId());
+	        long folderId       = Long.parseLong(_jornalConfiguration.folderId());
+	        long folderIdImages = Long.parseLong(_jornalConfiguration.folderIdImages());
+	        long structureId    = Long.parseLong(_jornalConfiguration.jornalStructureId());
+	        long templateId     = Long.parseLong(_jornalConfiguration.jornalTemplateId());
+	        String pathLogo		= _jornalConfiguration.pathLogo();
+	        String pathScript	= _jornalConfiguration.pathScript();
+	        
+	        DDMStructure ddmStructure = DDMStructureLocalServiceUtil.getDDMStructure(structureId);
+	        DDMTemplate ddmTemplate = DDMTemplateLocalServiceUtil.getDDMTemplate(templateId);
+	        long userId = ddmStructure.getUserId();
+			
+	        ThemeDisplay themeDisplay = (ThemeDisplay) actionRequest.getAttribute(WebKeys.THEME_DISPLAY);
+	        String currentURL = themeDisplay.getPortalURL();
+	        
+			// Get files
+			UploadPortletRequest uploadRequest = PortalUtil.getUploadPortletRequest(actionRequest);
+			
+			File mainImageFile = createFile(uploadRequest, "jornal-imagem-principal");
+			File videoFile     = createFile(uploadRequest, "jornal-video");
+			File image2File    = createFile(uploadRequest, "jornal-imagem-2");
+			File image3File    = createFile(uploadRequest, "jornal-imagem-3");
+			File image4File    = createFile(uploadRequest, "jornal-imagem-4");
+			File image5File    = createFile(uploadRequest, "jornal-imagem-5");
+			
+			// Get only the files that wont result in an email with more than 20MB
+			Map<String, String> mapInlineImages = new HashMap<String, String>();
+			File[] allFiles = {mainImageFile, image2File, image3File, image4File, image5File};
+			for(File tempFile : allFiles) {
+				if(Validator.isNotNull(tempFile)) {
+					mapInlineImages.put(tempFile.getName(), tempFile.getAbsolutePath());
+				}
+			}
+			
+			// Insert logo
+			File logo = new File(pathLogo);
+			mapInlineImages.put(logo.getName(), logo.getAbsolutePath());
+
+			DLFileEntry mainImage = uploadFile(mainImageFile, userId, groupId, folderIdImages, actionRequest);
+			DLFileEntry video     = uploadFile(videoFile,  userId, groupId, folderIdImages, actionRequest);
+			DLFileEntry image2 	  = uploadFile(image2File, userId, groupId, folderIdImages, actionRequest);
+			DLFileEntry image3    = uploadFile(image3File, userId, groupId, folderIdImages, actionRequest);
+			DLFileEntry image4    = uploadFile(image4File, userId, groupId, folderIdImages, actionRequest);
+			DLFileEntry image5    = uploadFile(image5File, userId, groupId, folderIdImages, actionRequest);
+			
+			String mainImageXMLString = createXMLStringForImage(mainImage);
+			String videoXMLString     = createXMLStringForVideo(video);
+			String image2XMLString 	  = createXMLStringForImage(image2);
+			String image3XMLString    = createXMLStringForImage(image3);
+			String image4XMLString    = createXMLStringForImage(image4);
+			String image5XMLString    = createXMLStringForImage(image5);
+			
+			// Service Context
+			ServiceContext serviceContext = new ServiceContext();
+			serviceContext.setScopeGroupId(groupId);
+			serviceContext.setUserId(userId);
+			serviceContext.setCreateDate(date);
+			
+			// Set category destaque
+			if(destaque.equalsIgnoreCase("true")) {
+				long[] assetCategoryIds = getCategoryId("Marcação de Conteúdo", "Destaque");
+				serviceContext.setAssetCategoryIds(assetCategoryIds);
+			}
+			
+			Jornal jornal = new Jornal(titulo, subtitulo, data, retranca, content, mainImageXMLString, videoXMLString, image2XMLString, image3XMLString, image4XMLString, image5XMLString);
+			long folderIdByDate = getjournalFolderIdByDate(userId, groupId, folderId, data.substring(0, 4), data.substring(5, 7), serviceContext);
+			JournalArticle ja = createJornal(jornal, ddmStructure.getGroupId(), folderIdByDate, calendarDate, ddmStructure, ddmTemplate, serviceContext);
+			
+			// Email variables
+			String urlTitle = ja.getUrlTitle();
+			long resourcePrimaryKey = ja.getResourcePrimKey() + 6;
+			
+			// Email images html
+			String mainImageHTML = "";
+			if(Validator.isNotNull(videoFile)){
+				generateThumbPlayImage(videoFile, pathScript);
+				mainImageHTML = createHTMLForImage(new File("/tmp/thumbPlay.png"), urlTitle, resourcePrimaryKey, currentURL, groupId, folderId);
+				mapInlineImages.put("thumbPlay.png", "/tmp/thumbPlay.png");
+			} else {
+				mainImageHTML = createHTMLForImage(mainImageFile, urlTitle, resourcePrimaryKey, currentURL, groupId, folderId);
+			}
+			String galeriaHTML = createHTMLForGaleria(image2File, image3File, image4File, image5File, currentURL, groupId, folderId);
+			
+			// Email preference data
+			String fromAddress = _jornalConfiguration.fromAddress();
+			String fromName    = _jornalConfiguration.fromName();
+			String body        = _jornalConfiguration.emailBody();
+			String emailDest   = _jornalConfiguration.emailDest();
+			String host        = _jornalConfiguration.host();
+			String port        = _jornalConfiguration.port();
+			String username    = _jornalConfiguration.username();
+			String password    = _jornalConfiguration.password();
+
+			MailTemplateContext bodyMailTemplateContext = Utils.buildMailTemplateContext(
+					fromAddress,
+					fromName,
+					titulo,
+					subtitulo,
+					dataUnformatted,
+					retranca,
+					content,
+					mainImageHTML,
+					galeriaHTML);
+			sendMailMessage(port, fromAddress, fromName, emailDest, titulo, body, mapInlineImages, bodyMailTemplateContext, BRAZIL);
+			log.info("Email de criação do Jornal: " + titulo + " enviado");
+			//actionResponse.sendRedirect("/noticias");
+		}catch(Exception e) {
+			log.error(e.getMessage());
+			e.printStackTrace();
+		}
+	}
+	
+	public static JournalArticle createJornal(Jornal jornal, long groupId, long folderId, Calendar date,
+			DDMStructure structure, DDMTemplate template, ServiceContext serviceContext) throws SystemException, PortalException, DocumentException {
+		try {
+			// Content
+			Map<String, List<String>> xmlFields = jornal.generateXML();
+			Document doc = createXML(xmlFields);
+			
+			// Title map
+			Map<Locale, String> titleMap = new HashMap<Locale, String>();
+			titleMap.put(BRAZIL, jornal.getTitulo());
+			
+			// Description map
+			Map<Locale, String> descriptionMap = new HashMap<Locale, String>();
+			descriptionMap.put(BRAZIL, jornal.getSubtitulo());
+			
+			String docXML = Utils.unescapeXML(doc.asXML());
+			Calendar now = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"));
+
+			JournalArticle ja = JournalArticleLocalServiceUtil.addArticle(
+					serviceContext.getUserId(),						// long userId
+					groupId, 										// long groupId
+					folderId, 										// long folderId
+					0L, 											// long classNameId
+					0L, 											// long classPK
+					"", 											// String articleId
+					true, 											// boolean autoArticleId					
+					1.0, 											// double version
+					titleMap,				 						// Map<Locale, String> titleMap
+					descriptionMap, 								// Map<Locale, String> descriptionMap
+					titleMap, 										// Map<Locale, String> friendlyURLMap
+					docXML, 										// String content
+					String.valueOf(structure.getStructureKey()), 	// String ddmStructureKey
+					String.valueOf(template.getTemplateKey()), 		// String ddmTemplateKey
+					null, 											// String layoutUuid
+					date.get(Calendar.MONTH),						// int displayDateMonth,
+					date.get(Calendar.DAY_OF_MONTH), 				// int displayDateDay,
+					date.get(Calendar.YEAR), 						// int displayDateYear,
+					now.get(Calendar.HOUR_OF_DAY), 						// int displayDateHour,
+					now.get(Calendar.MINUTE), 						// int displayDateMinute,
+					0, 												// int expirationDateMonth					
+					0, 												// int expirationDateDay
+					0, 												// int expirationDateYear
+					0, 												// int expirationDateHour
+					0, 												// int expirationDateMinute
+					true, 											// boolean neverExpire
+					date.get(Calendar.MONTH), 						// int reviewDateMonth,
+					date.get(Calendar.DAY_OF_MONTH), 				// int reviewDateDay,
+					date.get(Calendar.YEAR), 						// int reviewDateYear,
+					now.get(Calendar.HOUR_OF_DAY), 						// int reviewDateHour,
+					now.get(Calendar.MINUTE), 						// int reviewDateMinute,
+					false, 											// boolean neverReview
+					true, 											// boolean indexable
+					false, 											// boolean smallImage
+					"", 											// String smallImageURL
+					null, 											// File smallImageFile
+					Collections.emptyMap(), 						// Map<String, byte[]> images
+					"", 											// String articleURL
+					serviceContext 									// ServiceContext serviceContext
+					); 
+				
+			return ja;
+		}catch (Exception e) {
+			log.error(e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	public static Document createXML(Map<String, List<String>> xmlFields) throws SystemException, PortalException, DocumentException {
+		Document journalArticleContent = SAXReaderUtil.createDocument("UTF-8");
+
+		Element rootElement = SAXReaderUtil.createElement("root");
+
+		// Adicionando locales possíveis para migração de conteúdo em vários idiomas
+		rootElement.addAttribute("available-locales", "pt_BR");
+		rootElement.addAttribute("default-locale", "pt_BR");
+
+		for(String key: xmlFields.keySet()) {
+			if(key.equalsIgnoreCase("video")) {
+				String value = xmlFields.get(key).get(0);
+				String type = xmlFields.get(key).get(1);
+				String indexType = xmlFields.get(key).get(2);
+				
+				Element videoDynamicElement = SAXReaderUtil.createElement("dynamic-element");
+				videoDynamicElement.addAttribute("name", key);
+				videoDynamicElement.addAttribute("type", type);
+				videoDynamicElement.addAttribute("index-type", indexType);
+				videoDynamicElement.addAttribute("instance-id", PwdGenerator.getPassword(8));
+				
+				Element dynamicElement = createDynamicElement(journalArticleContent, "titulodovideo", "", "text", indexType);
+				Element dynamicContent = SAXReaderUtil.createElement("dynamic-content");
+				
+				dynamicContent.addAttribute("language-id", "pt_BR");
+				dynamicContent.addCDATA(value);
+				
+				videoDynamicElement.add(dynamicElement);
+				videoDynamicElement.add(dynamicContent);
+				rootElement.add(videoDynamicElement);
+			}else {
+				String value = xmlFields.get(key).get(0);
+				String type = xmlFields.get(key).get(1);
+				String indexType = xmlFields.get(key).get(2);
+				Element dynamicElement = createDynamicElement(journalArticleContent, key, value, type, indexType);
+				rootElement.add(dynamicElement);
+			}
+		}
+		journalArticleContent.add(rootElement);
+		
+		return journalArticleContent;
+	}
+	
+	private static Element createDynamicElement(Document doc, String name, String value, String type, String indexType)
+			throws DocumentException, PortalException, SystemException {
+		
+		Element dynamicElement = SAXReaderUtil.createElement("dynamic-element");
+		
+		// Campos obrigatórios para um Journal Article
+		dynamicElement.addAttribute("name", name);
+		dynamicElement.addAttribute("type", type);
+		dynamicElement.addAttribute("index-type", indexType);
+		dynamicElement.addAttribute("instance-id", PwdGenerator.getPassword(8));
+		
+		Element dynamicContent = SAXReaderUtil.createElement("dynamic-content");
+		
+		dynamicContent.addAttribute("language-id", "pt_BR");
+		dynamicContent.addCDATA(value);
+		
+		dynamicElement.add(dynamicContent);
+		
+		return dynamicElement;
+	}
+	
+	public static void sendMailMessage(String port, String fromAddress,	String fromName, String toAddress, String subject,
+			String htmlBody, Map<String, String> mapInlineImages, MailTemplateContext mailTemplateContext, Locale locale)
+                throws AddressException, MessagingException, IOException {
+		
+		MailcapCommandMap mc = (MailcapCommandMap) CommandMap.getDefaultCommandMap(); 
+		mc.addMailcap("text/html;; x-java-content-handler=com.sun.mail.handlers.text_html"); 
+		mc.addMailcap("text/xml;; x-java-content-handler=com.sun.mail.handlers.text_xml"); 
+		mc.addMailcap("text/plain;; x-java-content-handler=com.sun.mail.handlers.text_plain"); 
+		mc.addMailcap("multipart/*;; x-java-content-handler=com.sun.mail.handlers.multipart_mixed"); 
+		mc.addMailcap("message/rfc822;; x-java-content- handler=com.sun.mail.handlers.message_rfc822"); 
+		
+		try {
+			Transport transport = MailServiceUtil.getSession().getTransport();
+			
+			// creates a new e-mail message
+			Message msg = new MimeMessage(MailServiceUtil.getSession());
+			System.setProperty("mail.mime.charset", "UTF-8");
+			
+			msg.setFrom(new InternetAddress(fromAddress, fromName));
+			InternetAddress[] toAddresses = { new InternetAddress(toAddress) };
+			msg.setRecipients(Message.RecipientType.TO, toAddresses);
+			msg.setSubject(subject);
+			msg.setSentDate(new Date());
+			
+			// Templates
+			MailTemplate subjectTemplate = MailTemplateFactoryUtil.createMailTemplate(subject, false);
+			MailTemplate bodyTemplate = MailTemplateFactoryUtil.createMailTemplate(htmlBody, true);
+			subject = Utils.escape(subjectTemplate.renderAsString(locale, mailTemplateContext)).trim();
+			htmlBody = Utils.escape(bodyTemplate.renderAsString(locale, mailTemplateContext)).trim();
+			
+			// creates message part
+			MimeBodyPart messageBodyPart = new MimeBodyPart();
+			messageBodyPart.setContent(htmlBody, "text/html");
+			
+			// creates multi-part
+			Multipart multipart = new MimeMultipart();
+			multipart.addBodyPart(messageBodyPart);
+			
+			// adds inline image attachments
+			if (mapInlineImages != null && mapInlineImages.size() > 0) {
+				Set<String> setImageID = mapInlineImages.keySet();
+				
+				for (String contentId : setImageID) {
+					MimeBodyPart imagePart = new MimeBodyPart();
+					imagePart.setHeader("Content-ID", "<" + contentId + ">");
+					imagePart.setDisposition(MimeBodyPart.INLINE);
+					
+					String imageFilePath = mapInlineImages.get(contentId);
+					try {
+						imagePart.attachFile(imageFilePath);
+					} catch (IOException ex) {
+						ex.printStackTrace();
+					}
+					
+					multipart.addBodyPart(imagePart);
+				}
+			}
+			
+			msg.setContent(multipart);
+			
+	        transport.connect();
+	        transport.sendMessage(msg, msg.getAllRecipients());
+	        transport.close();
+			
+		}catch(Exception e) {
+			e.printStackTrace();
+			log.error(e);
+		}
+    }
+	
+	public File createFile(UploadPortletRequest uploadPortletRequest, String fileViewName) throws IOException {
+		File file = uploadPortletRequest.getFile(fileViewName);
+		String fileName = uploadPortletRequest.getFileName(fileViewName);
+		
+		File newFile = new File("/tmp" + File.separator + fileName.replaceAll(" ", ""));
+		if(Validator.isNotNull(fileName)) {
+			if(!fileName.equalsIgnoreCase("")) {
+				// Create files  at /tmp
+				FileUtil.copyFile(file, newFile);
+				return newFile;
+			}
+		}
+		return null;
+	}
+	
+ 	public DLFileEntry uploadFile(File file, long userId, long groupId, long folderIdImages, ActionRequest actionRequest)
+
+			throws IOException, PortalException {
+ 		
+		if(Validator.isNotNull(file)) {
+			List<DLFileEntryType> dLFileEntryTypes = DLFileEntryTypeLocalServiceUtil.getDLFileEntryTypes(-1, -1);
+			long fileEntryTypeId = dLFileEntryTypes.get(0).getFileEntryTypeId();
+			
+			// Service Context for DLFileEntry
+			ServiceContext serviceContext = ServiceContextFactory.getInstance(DLFileEntry.class.getName(), actionRequest);
+			serviceContext.setIndexingEnabled(true);
+			serviceContext.setAddGroupPermissions(true);
+			serviceContext.setAddGuestPermissions(true);
+			serviceContext.setScopeGroupId(groupId);
+			serviceContext.setDeriveDefaultPermissions(true);
+			
+			byte[] imageBytes = FileUtil.getBytes(file);
+			InputStream is = new ByteArrayInputStream(imageBytes);
+			
+			// Generate unique title
+			Calendar now = Calendar.getInstance();
+			String title = file.getName() + now.getTimeInMillis();
+			
+			DLFileEntry fileEntry = _dlFileEntryLocalService.addFileEntry(
+					userId,
+					groupId,
+					groupId,
+					folderIdImages,
+					file.getName(),
+					MimeTypesUtil.getContentType(file),
+					title,
+					"",
+					"",
+					fileEntryTypeId,
+					Collections.emptyMap(),
+					file,
+					is,
+					file.length(),
+					serviceContext);
+			_dlFileEntryLocalService.updateDLFileEntry(fileEntry);
+			_dlFileEntryLocalService.updateStatus(userId, fileEntry.getFileVersion().getFileVersionId(), 
+					WorkflowConstants.STATUS_APPROVED, serviceContext, new HashMap<String, Serializable>());
+			
+			return fileEntry;
+		}
+		return null;
+	}
+
+ 	public void generateThumbPlayImage(File video, String pathScript) throws InterruptedException, IOException {
+ 		try {
+ 			ProcessBuilder builder = new ProcessBuilder();
+ 			
+ 			Runtime.getRuntime().exec("ffmpeg -ss 00:00:01 -i " + video.getAbsolutePath() + " -frames:v 1 /tmp/thumbNail.png -y")
+ 			.waitFor(10, TimeUnit.SECONDS);
+ 			
+ 			
+ 			builder.command("sh", "-c", pathScript);
+ 			Process process = builder.start();
+ 			
+ 			int exitCode = process.waitFor();
+ 			assert exitCode == 0;
+			
+ 		}catch(Exception e) {
+ 			e.printStackTrace();
+ 		}
+ 	}
+ 	
+  	public String createHTMLForGaleria(File file1, File file2, File file3, File file4, 
+ 			String currentURL, long groupId, long folderId) {
+		if(Validator.isNotNull(file1)) {
+			String img1 = "<img src=\"cid:" + file1.getName() + "\" width=\"280\" />";
+			String img2 = "";
+			String img3 = "";
+			String img4 = "";
+			if(Validator.isNotNull(file2)) {
+				img2 = "<img src=\"cid:" + file2.getName() + "\" width=\"280\" />";
+			}
+			if(Validator.isNotNull(file3)) {
+				img3 = "<img src=\"cid:" + file3.getName() + "\" width=\"280\" />";
+			}
+			if(Validator.isNotNull(file4)) {
+				img4 = "<img src=\"cid:" + file4.getName() + "\" width=\"280\" />";
+			} 
+			String HTMLString = "<div style=\"font-size: 22px\"><b>Galeria de Fotos</b><br />\n" + 
+					"&nbsp;</div></div><div style=\"color:#3d3d3d; background-color: #f6f6f6;\">"
+					+ "<table width=\"600\" border=\"0\" align=\"center\" cellpadding=\"0\" cellspacing=\"0\" >\n" +
+					"<tbody> \n" +
+					"<tr width=\"600\">             \n" +
+					"	<td width=\"300\" align=\"left\" valign=\"middle\">\n"	 +
+					img1 												  	     +
+					"	</td><br>											\n"      +
+					"	<td width=\"300\" align=\"left\" valign=\"middle\">\n"	 +	
+					img2 													     +
+					"	</td>											\n"		 +
+					"</tr>												\n" 	 +
+					"<tr width=\"600\" >			 \n" +
+					"	<td width=\"300\" align=\"left\" valign=\"middle\">\n" 	 +
+					img3 												    	 +
+					"	</td>											\n" 	 +
+					"	<td width=\"300\" align=\"left\" valign=\"middle\">\n"   +
+					img4 														 +
+					"	</td>											\n" 	 +
+					"</tr>												\n" 	 +
+					"</tbody> \n" +
+					"</table><br>";
+
+			return HTMLString;
+		}
+		return "";
+ 	}
+ 	
+ 	public String createHTMLForImage(File file, String urlTitle, long entryId, String currentURL, long groupId,
+ 			long folderId) throws PortalException {
+ 		
+		if(Validator.isNotNull(file)) {
+			String urlJornal = currentURL + "/noticias/-/asset_publisher/o34XumoppXq2/content/id/" + entryId + "/" + urlTitle;
+			String HTMLString = "<a href=\"" + urlJornal + "\"><img alt=\"(imagem)\" src=\"cid:" + file.getName() + "\" style=\"display: block;\" width=\"530\" height=\"auto\" /></a>";
+			return HTMLString;
+		}
+		return "";
+ 	}
+ 	
+	public String createXMLStringForImage(DLFileEntry file) {
+		if(Validator.isNotNull(file)) {
+
+			String XMLString = "{\"groupId\":\"" + file.getGroupId() + 
+					"\",\"name\":\"" + file.getName() + 
+					"\",\"alt\":\"\",\"title\":\"" + file.getTitle() +
+					"\",\"type\":\"document\",\"uuid\":\"" + file.getUuid() +
+					"\",\"fileEntryId\":\"" + file.getFileEntryId() +
+					"\",\"resourcePrimKey\":\"" + file.getPrimaryKey() +
+					"\"}";
+			
+			return XMLString;
+		}
+		return "";
+	}
+	
+	public String createXMLStringForVideo(DLFileEntry file) {
+
+		if(Validator.isNotNull(file)) {
+
+			String XMLString = "{\"groupId\":\"" + file.getGroupId() + 
+					"\",\"title\":\"" + file.getTitle() +
+					"\",\"type\":\"document\",\"uuid\":\"" + file.getUuid() +
+					"\"}";
+			
+			return XMLString;
+		}
+		return "";
+	}
+	
+	public long[] getCategoryId(String vocabularyName, String categoryName) {
+		long assetCategoryId = 0L;
+		List<AssetVocabulary> assetVocabularies = AssetVocabularyLocalServiceUtil.getAssetVocabularies(-1, -1);
+		for(AssetVocabulary assetVocabulary: assetVocabularies) {
+			if(assetVocabulary.getName().equalsIgnoreCase(vocabularyName)){
+				for(AssetCategory assetCategory : assetVocabulary.getCategories()) {
+					if(assetCategory.getName().equalsIgnoreCase(categoryName)) {
+						assetCategoryId = assetCategory.getCategoryId();
+					}
+				}
+			}
+		}
+		long[] assetCategoryIds = {assetCategoryId};
+		return assetCategoryIds;
+	}
+	
+	/*
+	 * Method used to create the necessary JournalFolders based on the date receveid
+	 * Making a tree, example: Jan 2020 creates 2020 -> 01
+	 * 
+	 * Receiveis the adminUserId, the groupId of the site where the folders are going to be created,
+	 * the parentFolder from where the year's Folder are going to be created,
+	 * the year and month as Strings and the serviceContext
+	 * 
+	 * Return the id of the month JournalFolder
+	 */
+ 	private static long getjournalFolderIdByDate(long userId, long groupId, long parentFolderId, String year, String month,
+ 			ServiceContext serviceContext) throws PortalException {
+ 		
+		List<JournalFolder> journalYearsFolders = JournalFolderLocalServiceUtil.getFolders(groupId, parentFolderId);
+		JournalFolder yearFolder = null;
+		JournalFolder monthFolder = null;
+		for(JournalFolder journalFolder : journalYearsFolders) {
+			JournalFolderLocalServiceUtil.updateJournalFolder(journalFolder);
+			if(journalFolder.getName().equalsIgnoreCase(year)){
+				yearFolder = journalFolder;
+			}
+		}
+		if(Validator.isNotNull(yearFolder)) {
+			List<JournalFolder> journalMonthsFolders = JournalFolderLocalServiceUtil.getFolders(groupId, yearFolder.getFolderId());
+			for(JournalFolder journalFolder : journalMonthsFolders) {
+				JournalFolderLocalServiceUtil.updateJournalFolder(journalFolder);
+				if(journalFolder.getName().equalsIgnoreCase(month)){
+					monthFolder = journalFolder;
+				}
+			}
+			if(Validator.isNull(monthFolder)) { // Create monthFolder
+				monthFolder = JournalFolderLocalServiceUtil.addFolder(userId, groupId, yearFolder.getFolderId(), month, "", serviceContext);
+			}
+		}else {			// Create yearFolder and monthFolder
+			yearFolder = JournalFolderLocalServiceUtil.addFolder(userId, groupId, parentFolderId, year, "", serviceContext);
+			monthFolder = JournalFolderLocalServiceUtil.addFolder(userId, groupId, yearFolder.getFolderId(), month, "", serviceContext);
+		}
+		return monthFolder.getFolderId();
+	}
+	
+	static Log log = LogFactoryUtil.getLog(SubmitJornalPortlet.class);
+	
+	@Reference
+	private CompanyLocalService _companyLocalService;
+
+	@Reference
+	private MailService _mailService;
+
+	@Reference
+	DLFileEntryLocalService _dlFileEntryLocalService;
+	
+	private static volatile JornalConfiguration _jornalConfiguration;
+	
+	@Activate
+	@Modified
+	public void activate(Map<String, Object> properties) {
+		_jornalConfiguration = ConfigurableUtil.createConfigurable(JornalConfiguration.class, properties);
+	}
+}

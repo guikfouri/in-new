@@ -1,0 +1,607 @@
+package br.com.seatecnologia.in.boletins.portlet;
+
+import com.liferay.document.library.kernel.model.DLFileEntry;
+import com.liferay.document.library.kernel.model.DLFileEntryType;
+import com.liferay.document.library.kernel.model.DLFolder;
+import com.liferay.document.library.kernel.service.DLFileEntryLocalService;
+import com.liferay.document.library.kernel.service.DLFileEntryTypeLocalServiceUtil;
+import com.liferay.document.library.kernel.service.DLFolderLocalServiceUtil;
+import com.liferay.dynamic.data.mapping.kernel.DDMFormFieldValue;
+import com.liferay.dynamic.data.mapping.kernel.DDMFormValues;
+import com.liferay.dynamic.data.mapping.kernel.DDMStructure;
+import com.liferay.dynamic.data.mapping.kernel.LocalizedValue;
+import com.liferay.dynamic.data.mapping.kernel.Value;
+import com.liferay.portal.configuration.metatype.bnd.util.ConfigurableUtil;
+import com.liferay.portal.kernel.exception.PortalException;
+import com.liferay.portal.kernel.json.JSONArray;
+import com.liferay.portal.kernel.json.JSONException;
+import com.liferay.portal.kernel.json.JSONFactoryUtil;
+import com.liferay.portal.kernel.json.JSONObject;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.model.Role;
+import com.liferay.portal.kernel.model.RoleConstants;
+import com.liferay.portal.kernel.model.User;
+import com.liferay.portal.kernel.portlet.bridges.mvc.MVCPortlet;
+import com.liferay.portal.kernel.search.Indexer;
+import com.liferay.portal.kernel.search.IndexerRegistryUtil;
+import com.liferay.portal.kernel.service.RoleLocalServiceUtil;
+import com.liferay.portal.kernel.service.ServiceContext;
+import com.liferay.portal.kernel.service.ServiceContextFactory;
+import com.liferay.portal.kernel.service.UserLocalServiceUtil;
+import com.liferay.portal.kernel.theme.ThemeDisplay;
+import com.liferay.portal.kernel.upload.UploadPortletRequest;
+import com.liferay.portal.kernel.util.FileUtil;
+import com.liferay.portal.kernel.util.LocaleUtil;
+import com.liferay.portal.kernel.util.MimeTypesUtil;
+import com.liferay.portal.kernel.util.ParamUtil;
+import com.liferay.portal.kernel.util.PortalUtil;
+import com.liferay.portal.kernel.util.Validator;
+import com.liferay.portal.kernel.util.WebKeys;
+import com.liferay.portal.kernel.workflow.WorkflowConstants;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+import javax.portlet.ActionRequest;
+import javax.portlet.ActionResponse;
+import javax.portlet.Portlet;
+import javax.portlet.PortletException;
+import javax.portlet.ProcessAction;
+import javax.portlet.RenderRequest;
+import javax.portlet.RenderResponse;
+
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+
+import br.com.seatecnologia.in.boletins.configuration.BoletimConfiguration;
+import br.com.seatecnologia.in.boletins.portlet.constants.BoletinsPortletKeys;
+import br.com.seatecnologia.in.boletins.portlet.mail.MailHandler;
+import br.com.seatecnologia.in.boletins.utils.Utils;
+
+/**
+ * @author kfouri
+ */
+
+@Component(immediate = true,
+			property = { "com.liferay.portlet.display-category=category.sample",
+		"com.liferay.portlet.header-portlet-css=/css/main.css", "com.liferay.portlet.instanceable=true",
+		"javax.portlet.display-name=Boletins", "javax.portlet.init-param.template-path=/",
+		"javax.portlet.init-param.view-template=/view.jsp", "javax.portlet.name=" + BoletinsPortletKeys.BOLETINS,
+		"javax.portlet.resource-bundle=content.Language",
+		"javax.portlet.security-role-ref=power-user,user" },
+			service = Portlet.class,
+			configurationPid = "br.com.seatecnologia.in.boletins.configuration.BoletimConfiguration")
+public class BoletinsPortlet extends MVCPortlet {
+
+	final static private Log log = LogFactoryUtil.getLog(BoletinsPortlet.class);
+	
+	static public final Locale BRAZIL = new Locale("pt", "BR");
+	static public final Locale US = new Locale("en", "US");
+
+	private volatile BoletimConfiguration _boletimConfiguration;
+	
+	/*
+	 * (non-Javadoc)
+	 * @see com.liferay.portal.kernel.portlet.bridges.mvc.MVCPortlet#doView(javax.portlet.RenderRequest, javax.portlet.RenderResponse)
+	 * 
+	 * Method used to list the boletins
+	 */
+	@Override
+	public void doView(RenderRequest renderRequest, RenderResponse renderResponse)
+			throws IOException, PortletException {
+		
+		// Pagination data
+		String currentPageString = ParamUtil.getString(renderRequest, "currentPageBoletim", "0");
+		int currentPage = Integer.valueOf(currentPageString);
+		String newPageString = ParamUtil.getString(renderRequest, "newPageBoletim", "1");
+		int newPage = Integer.valueOf(newPageString);
+		String totalPagesString = ParamUtil.getString(renderRequest, "totalPagesBoletim", "2");
+		int totalPages = Integer.valueOf(totalPagesString);
+		
+		String createDateSA = ParamUtil.getString(renderRequest, "createDateSearchAfter", "0");
+		String edicaoSA = ParamUtil.getString(renderRequest, "edicaoSearchAfter", "0");
+		
+		// Order data
+		String reverseSort = ParamUtil.getString(renderRequest, "reverseSortBoletim", "desc");
+		if(newPageString.equals(totalPagesString)) {
+			reverseSort = "asc";
+		}else if(newPageString.equals("1")){
+			reverseSort = "desc";
+		}else {
+			reverseSort = newPage > currentPage ? "desc" : "asc";
+		}
+		
+		// ElasticSearch URL
+		String elasticSearchUrl = _boletimConfiguration.elasticSearchUrl(); 
+		elasticSearchUrl 		+= elasticSearchUrl.endsWith("/") ? "" : "/";
+		String elasticSearchSearchUrl 	= elasticSearchUrl + "_search"; 
+		
+		// Get DLFileEntryTypeId
+		List<DLFileEntryType> dLFileEntryTypes = DLFileEntryTypeLocalServiceUtil.getDLFileEntryTypes(-1, -1);
+		long fileEntryTypeId = dLFileEntryTypes.get(0).getFileEntryTypeId();
+		for(DLFileEntryType dLFileEntryType : dLFileEntryTypes) {
+			if(dLFileEntryType.getName(BRAZIL).equalsIgnoreCase("Boletim")){
+				fileEntryTypeId = dLFileEntryType.getFileEntryTypeId();
+				break;
+			}
+		}
+		
+		int resultsCount = 0;
+		// Delta
+		int delta = ParamUtil.getInteger(renderRequest, "deltaBoletim", 20);
+		int size = delta;
+		if (newPage - currentPage == 2 || newPage - currentPage == -2 ) 
+			size *= 2;
+
+		// Checks if its a delta change
+		if(newPageString.equals(currentPageString) || newPageString.equals("1")) {
+			newPage = 1;
+			newPageString = "1";
+			reverseSort = "desc";
+			size = delta;
+		}
+		
+		if(newPageString.equals(totalPagesString)) {
+			reverseSort = "asc";
+			size = delta;
+		}
+		
+		JSONArray paginatedHits = JSONFactoryUtil.createJSONArray(); 
+		JSONArray hits = JSONFactoryUtil.createJSONArray(); 
+		try {
+			if(_boletimConfiguration.elasticSearchUrl().trim().equals(""))  
+				throw new Exception("URL do Elastic Search não configurada");
+			
+			String searchQuery = buildSearchQuery(Long.parseLong(_boletimConfiguration.groupId()), fileEntryTypeId, createDateSA, edicaoSA, newPageString, reverseSort, totalPages, size);
+			//log.info(searchQuery.toString());
+			JSONObject searchResponse = doSearch(searchQuery, elasticSearchSearchUrl);
+			//log.info(searchResponse.toString());
+			
+			resultsCount = (int) searchResponse.getJSONObject("hits").getLong("total");
+			Integer lastPageResults = resultsCount % delta == 0 ? delta : resultsCount % delta; // number of results in the last page
+
+			hits = parseHits(searchResponse.getJSONObject("hits").getJSONArray("hits"), String.valueOf(fileEntryTypeId + 1));
+			
+			totalPages = (int) Math.ceil(searchResponse.getJSONObject("hits").getLong("total") / Float.valueOf(delta));
+			if(hits.length() == 0)
+				throw new Exception("Elastic search retornou hits com length 0");
+			
+			paginatedHits = Utils.getLastArrayValues(hits, newPage == totalPages ? lastPageResults : delta);
+			if(reverseSort.equals("asc")) {
+				paginatedHits = Utils.reverseJSONAraay(paginatedHits);
+			}
+		
+		} catch(Exception e) {
+			log.error(e);
+		}
+		
+		JSONObject response = JSONFactoryUtil.createJSONObject();
+		response.put("jsonArray", paginatedHits);
+		
+		renderRequest.setAttribute("paramsView", response);
+		renderRequest.setAttribute("currentPageView", Integer.valueOf(newPage));
+		renderRequest.setAttribute("totalPagesView", totalPages);
+		renderRequest.setAttribute("deltaView", delta);
+		renderRequest.setAttribute("totalResultsView", resultsCount);
+		renderRequest.setAttribute("reverseSortView", reverseSort);
+		renderRequest.setAttribute("pageNameView", _boletimConfiguration.boletimPageName());
+		
+		super.doView(renderRequest, renderResponse);
+	}
+	
+	/*
+	 * Method used to create the DLFileEntry of type Boletim
+	 */
+	@ProcessAction(name = "submitBoletim")
+	public void submitBoletim(ActionRequest actionRequest, ActionResponse actionResponse)
+			throws IOException, PortletException, PortalException {
+
+		try {
+			Locale locale = LocaleUtil.BRAZIL;	
+			
+			// Data from front
+			String edicao = ParamUtil.getString(actionRequest, "boletim-edicao");
+			String data = ParamUtil.getString(actionRequest, "boletim-data");
+			String link = ParamUtil.getString(actionRequest, "url");;
+
+			// Create date and String for month and year
+			Date date = new SimpleDateFormat("dd/MM/yyyy").parse(data);
+			Calendar calendar = Calendar.getInstance();
+			long nowInMillis = calendar.getTimeInMillis();
+			calendar.setTime(date);
+			String year = String.valueOf(calendar.get(Calendar.YEAR));
+			String month = String.valueOf(calendar.get(Calendar.MONTH) + 1);
+			
+			// Configuration data
+			String fromName = _boletimConfiguration.fromName();
+			String fromAddress = _boletimConfiguration.fromAddress();
+			String addresTo = _boletimConfiguration.toAddress();
+			String tempPath = _boletimConfiguration.tempPath();
+			String port        = _boletimConfiguration.port();
+	        String pathLogo		= _boletimConfiguration.pathLogo();
+			long groupId = Long.parseLong(_boletimConfiguration.groupId());
+			long folderIdDoc = Long.parseLong(_boletimConfiguration.folderIdDocumento());	 
+			
+			// Theme display
+			ThemeDisplay themeDisplay = (ThemeDisplay) actionRequest.getAttribute(WebKeys.THEME_DISPLAY);
+			
+			// Get admin userId
+			Role role = RoleLocalServiceUtil.getRole(themeDisplay.getCompanyId(), RoleConstants.ADMINISTRATOR);
+			User adminUser = UserLocalServiceUtil.getRoleUsers(role.getRoleId()).get(0);
+			
+			// Get File
+			UploadPortletRequest uploadRequest = PortalUtil.getUploadPortletRequest(actionRequest);
+			File file = uploadRequest.getFile("boletim-file");
+			String fileName = uploadRequest.getFileName("boletim-file");
+			
+			if(Validator.isNotNull(file)) {
+				// Create files  at /tmp
+				File newFile = new File(tempPath + File.separator + fileName);
+				FileUtil.copyFile(file, newFile);
+				
+				// Service Context for DLFileEntry
+				ServiceContext serviceContext = ServiceContextFactory.getInstance(DLFileEntry.class.getName(), actionRequest);
+				serviceContext.setAddGroupPermissions(true);
+				serviceContext.setCreateDate(date);
+				serviceContext.setIndexingEnabled(true);
+			    serviceContext.setAddGroupPermissions(true);
+			    serviceContext.setAddGuestPermissions(true);
+			    serviceContext.setCompanyId(themeDisplay.getCompanyId());
+			    serviceContext.setScopeGroupId(groupId);
+			    serviceContext.setDeriveDefaultPermissions(true);
+				
+				byte[] imageBytes = FileUtil.getBytes(newFile);
+				InputStream is = new ByteArrayInputStream(imageBytes);
+				
+				// Get dLFileEntryTypeId Boletim, if not default
+				List<DLFileEntryType> dLFileEntryTypes = DLFileEntryTypeLocalServiceUtil.getDLFileEntryTypes(-1, -1);
+				long fileEntryTypeId = dLFileEntryTypes.get(0).getFileEntryTypeId();
+				for(DLFileEntryType dLFileEntryType : dLFileEntryTypes) {
+					if(dLFileEntryType.getName(BRAZIL).equalsIgnoreCase("Boletim")){
+						fileEntryTypeId = dLFileEntryType.getFileEntryTypeId();
+						break;
+					}
+				}
+				
+				// Get dlFolder for Documents
+				long monthFolderId = getDLFolderIdByDate(adminUser.getUserId(), groupId, folderIdDoc, year, month, serviceContext);
+				
+				DLFileEntryType dLFileEntryType = DLFileEntryTypeLocalServiceUtil.getDLFileEntryType(fileEntryTypeId);
+				DDMStructure ddmStructure = dLFileEntryType.getDDMStructures().get(0);
+				
+				// Create ddmFormValuesMap to set edicao
+				String[] keys = {"edicao"};
+				String[] values = {edicao};
+				Map<String,DDMFormValues> ddmFormValuesMap = createDDMFormValuesMap(ddmStructure, keys, values);
+
+				// Create file in the Document Library
+				DLFileEntry fileEntry = _dlFileEntryLocalService.addFileEntry(
+						adminUser.getUserId(),
+						groupId,
+						groupId,
+						monthFolderId,
+						newFile.getName(),
+						MimeTypesUtil.getContentType(newFile),
+						newFile.getName() + nowInMillis,
+						"",
+						"",
+						fileEntryTypeId,
+						ddmFormValuesMap,
+						newFile,
+						is,
+						newFile.length(),
+						serviceContext);
+				
+				_dlFileEntryLocalService.updateDLFileEntry(fileEntry);
+				_dlFileEntryLocalService.updateStatus(adminUser.getUserId(), fileEntry.getFileVersion().getFileVersionId(), 
+						WorkflowConstants.STATUS_APPROVED, serviceContext, new HashMap<String, Serializable>());
+				
+				reindexFileEntry(fileEntry);
+				
+				log.info("Documento do tipo Boletim criado. Nome: " + newFile.getName() + ", edicao: " + edicao + ", data: " + data);
+				
+				// Email fields
+				String subject = "Boletim de Serviço nº " + edicao + " de " + data;
+				String[] href = link.split("/");
+				link = href[0] + "//" + href[1] + href[2] + "/documents/" + groupId + "/" + monthFolderId + "/" + newFile.getName() + nowInMillis;
+				
+				String description ="<div style=\"background:#0086c5;width:100%;height:100%;text-align:center;color:#ffffff; font-family:Verdana,Geneva,sans-serif; align-items: center;justify-content: center;\">\n" + 
+						"    <div style=\" width: 100%; \"><br>\n" + 
+						"        <img alt=\"Imprensa Nacional\" height=\"132\" src=\"cid:logo.png\" style=\"display: block;\" width=\"132\" />\n" + 
+						"        <p style=\"font-weight: 100; margin-top: 35px; margin-bottom: 0; font-size: 21px;\">\n" + 
+						"            Informamos que o <a style=\"color: #ffffff\" href=\"" + link + "\"><u><b>Boletim de Serviço nº " + edicao + "</b></u></a>, <br>\n" + 
+						"            de " + data + ", foi publicado na INNet.<br>\n" + 
+						"            Para acessá-lo, clique <a style=\"color: #ffffff\" href=\"" + link + "\"><u><b>aqui</b></u></a>." +
+						"        </p>\n" + 
+						"		 <br>\n" + 
+						"    </div>\n" + 
+						"</div>\n" + 	
+						"";
+				
+				// Send email
+				Map<String, String> mapInlineImages = new HashMap<String, String>();
+				File logo = new File(pathLogo);
+				mapInlineImages.put(logo.getName(), logo.getAbsolutePath());
+
+				MailHandler mailHandler = new MailHandler(fromName, fromAddress, subject, addresTo);
+				mailHandler.buildMailTemplateContext();
+				mailHandler.sendMailMessage(port, description, mapInlineImages, locale);
+
+				log.info("Email enviado com sucesso de: " + fromAddress + " para: " + addresTo + " com assunto: \""
+						+ subject + "\".");
+			}
+		} catch (Exception e) {
+			log.error(e);
+		}
+	}
+	
+	/*
+	 * Method used to parse the hits and create a JSONArray to pass the hits to the view
+	 */
+	public JSONArray parseHits(JSONArray hitsArray, String fileEntryTypeIdString) {
+		JSONArray hits = JSONFactoryUtil.createJSONArray();
+		
+		for(int i = 0; i < hitsArray.length(); i++) {
+			JSONObject hit = hitsArray.getJSONObject(i);
+			JSONObject source = hit.getJSONObject("_source");
+			
+			String groupId = source.getString("groupId");
+		    String title = source.getString("title");
+		    String folderId = source.getString("folderId");
+		    
+		    String edicao = source.getString("ddm__keyword__" + fileEntryTypeIdString + "__edicao_pt_BR");
+			String createDate = source.getString("createDate");
+			long createDateSortable = source.getLong("createDate_sortable");
+			String link = "/documents/" + groupId + "/" + folderId + "/" + title;
+		    
+		    JSONObject hitJson = JSONFactoryUtil.createJSONObject();
+			hitJson.put("edicao", edicao);
+			hitJson.put("createDate", createDate);
+		    hitJson.put("link", link);
+		    hitJson.put("createDateSortable", createDateSortable);
+			
+		    hits.put(hitJson);
+		}
+		
+		return hits;
+	}
+	
+	/*
+	 * Method used to create the elastichSearch query of the Boletins
+	 * 
+	 * Return the query as a string
+	 */
+	public String buildSearchQuery(long groupId, long fileEntryTypeId, String createDate, String edicao, String newPage, String order, int totalPages, int delta) {
+		
+		String query = "{\n" + 
+				"	\"query\": {\n" + 
+				"        \"bool\": {\n" + 
+				"            \"filter\": [\n" + 
+				"                {\n" + 
+				"                    \"term\": {\n" + 
+				"                        \"entryClassName\": \"com.liferay.document.library.kernel.model.DLFileEntry\"\n" + 
+				"                    }\n" + 
+				"                },\n" + 
+				"                {\n" + 
+				"                    \"term\": {\n" + 
+				"                        \"fileEntryTypeId\": \"" + fileEntryTypeId + "\"\n" + 
+				"                    }\n" + 
+				"                },\n" + 
+				"                {\n" + 
+				"                    \"term\": {\n" + 
+				"                        \"groupId\": \"" + groupId + "\"\n" + 
+				"                    }\n" + 
+				"                },\n" + 
+				" 				 {\n" + 
+				"                    \"term\": {\n" + 
+				"					 	\"status\": \"0\"\n" + 
+				"                    }\n" + 
+				"                }\n" + 
+				"            ]\n" + 
+				"        }\n" + 
+				"    },\n" +
+				"    \"sort\": [\n" + 
+				"        {\n" + 
+				"             \"createDate_sortable\" : \"" + order + "\"\n" + 
+				"        },\n" + 
+				"        {\n" + 
+				"             \"ddm__keyword__" + String.valueOf(fileEntryTypeId + 1) + "__edicao_pt_BR\" : \"" + order + "\"\n" + 
+				"        }\n" + 
+				"    ],\n" +
+				"    \"size\":" + delta;
+		
+		if(!newPage.equals("1") && !newPage.equals(String.valueOf(totalPages))) {
+			query +=",\n" + 
+					"    \"search_after\" : [\n" +
+					"        "	+ createDate + "," + edicao + "\n" +
+					"    ]";
+		}else {
+			query +="\n";
+		}
+		query += "}";
+		
+		return query;
+	}
+
+	/*
+	 * Method used to send the elasticSearch query
+	 * 
+	 * Receiveis the body of the request and the URL 
+	 * 
+	 * Return the JSONObject of the response
+	 */
+	public JSONObject doSearch(String body, String urlString) {
+		
+		JSONObject jsonResponse = JSONFactoryUtil.createJSONObject();
+		HttpURLConnection con;
+		try {
+
+			URL url = new URL(urlString);
+
+			con = (HttpURLConnection) url.openConnection();
+			con.setRequestMethod("GET");
+			con.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+			con.setDoOutput(true);
+			DataOutputStream out = new DataOutputStream(con.getOutputStream());
+			out.writeChars(body);
+			
+			out.flush();
+			out.close();
+			
+			int status = con.getResponseCode();
+			BufferedReader in;
+			try {
+				in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+			}catch (Exception e) {
+				in = new BufferedReader(new InputStreamReader(con.getErrorStream()));
+				log.error(e);
+			}
+			String inputLine;
+			StringBuffer content = new StringBuffer();
+			while ((inputLine = in.readLine()) != null) {
+			    content.append(inputLine);
+			}
+			in.close();
+			con.disconnect();
+			
+			jsonResponse = JSONFactoryUtil.createJSONObject(content.toString());
+			jsonResponse.put("status", status);
+			
+		} catch (MalformedURLException e) {
+			jsonResponse.put("error", "Error creating the URL. Error: " + e.toString());
+			log.error(e.toString());
+		} catch (IOException e) {
+			jsonResponse.put("error", "Error with the request. Error: " + e.toString());
+			log.error(e.toString());
+		} catch (JSONException e) {
+			jsonResponse.put("error", "Error parsing the response. Error: " + e.toString());
+			log.error(e.toString());
+		} catch (Exception e) {
+			jsonResponse.put("error", "Unexpected error. Error: " + e.toString());
+			log.error(e.toString());
+		}
+		return jsonResponse;
+	}
+	
+	/*
+	 * Method used to create the DDMFormValuesMap, which contains the keys and values of the fields,
+	 * based on the structure of the DLFileEntryType
+	 * 
+	 * Receiveis the structure, the keys and values
+	 * 
+	 * Returns the DDMFormValuesMap
+	 */
+	private static Map<String,DDMFormValues> createDDMFormValuesMap(DDMStructure ddmStructure, String[] keys, String[] values) {
+		List<DDMFormFieldValue> ddmFormFieldValues = new ArrayList<DDMFormFieldValue>();
+		
+		Set<Locale> availableLocales = new HashSet<Locale>();
+		availableLocales.add(BRAZIL);
+		
+		for(int i = 0; i < keys.length; i++) {
+			Value value = new LocalizedValue();
+			value.setDefaultLocale(BRAZIL);
+			value.addString(BRAZIL, values[i]);
+			
+			DDMFormFieldValue ddmFormFieldValue = new DDMFormFieldValue();
+			ddmFormFieldValue.setName(keys[i]);
+			ddmFormFieldValue.setValue(value);
+			ddmFormFieldValues.add(ddmFormFieldValue);
+		}
+		
+		DDMFormValues ddmFormValues = new DDMFormValues(ddmStructure.getDDMForm());
+		ddmFormValues.setDDMFormFieldValues(ddmFormFieldValues);
+		ddmFormValues.setAvailableLocales(availableLocales);
+		ddmFormValues.setDefaultLocale(BRAZIL);
+		
+		Map<String,DDMFormValues> ddmFormValuesMap = new  HashMap<String,DDMFormValues>();
+		ddmFormValuesMap.put(ddmStructure.getStructureKey(), ddmFormValues);
+		
+		return ddmFormValuesMap;
+	}
+	
+	/*
+	 * Method used to create the necessary DLFolders based on the date receveid
+	 * Making a tree, example: Jan 2020 creates 2020 -> 01
+	 * 
+	 * Receiveis the adminUserId, the groupId of the site where the folders are going to be created,
+	 * the parentFolder from where the year's Folder are going to be created,
+	 * the year and month as Strings and the serviceContext
+	 * 
+	 * Return the id of the month DLFolder
+	 */
+ 	private static long getDLFolderIdByDate(long userId, long groupId, long parentFolderId, String year, String month, ServiceContext serviceContext) throws PortalException {
+		// Get dlFolder for Documents
+		List<DLFolder> dLYearsFolders = DLFolderLocalServiceUtil.getFolders(groupId, parentFolderId);
+		DLFolder yearFolder = null;
+		DLFolder monthFolder = null;
+		for(DLFolder dLFolder : dLYearsFolders) {
+			DLFolderLocalServiceUtil.updateDLFolder(dLFolder);
+			if(dLFolder.getName().equalsIgnoreCase(year)){
+				yearFolder = dLFolder;
+			}
+		}
+		if(Validator.isNotNull(yearFolder)) {
+			List<DLFolder> dLMonthsFolders = DLFolderLocalServiceUtil.getFolders(groupId, yearFolder.getFolderId());
+			for(DLFolder dLFolder : dLMonthsFolders) {
+				DLFolderLocalServiceUtil.updateDLFolder(dLFolder);
+				if(dLFolder.getName().equalsIgnoreCase(month)){
+					monthFolder = dLFolder;
+				}
+			}
+			if(Validator.isNull(monthFolder)) { // Create monthFolder
+				monthFolder = DLFolderLocalServiceUtil.addFolder(userId, groupId, groupId, false, yearFolder.getFolderId(), month, "", false, serviceContext);
+			}
+		}else {			// Create yearFolder and monthFolder
+			yearFolder = DLFolderLocalServiceUtil.addFolder(userId, groupId, groupId, false, parentFolderId, year, "", false, serviceContext);
+			monthFolder = DLFolderLocalServiceUtil.addFolder(userId, groupId, groupId, false, yearFolder.getFolderId(), month, "", false, serviceContext);
+		}
+		return monthFolder.getFolderId();
+	}
+	
+ 	/*
+ 	 * Method used to reindex the DLFileEntry after it is created
+ 	 * 
+ 	 * Receives the DLFileEntry and return void
+ 	 */
+ 	private void reindexFileEntry(DLFileEntry dlFileEntry) {
+		Indexer<DLFileEntry> indexer = IndexerRegistryUtil.getIndexer(DLFileEntry.class);
+		try {
+			indexer.reindex(dlFileEntry);
+		} catch (Exception e) {
+			log.error("Erro ao reindexar o article " + dlFileEntry.getFileEntryId());
+		}
+		log.info("Documento indexado");
+	}
+ 	
+	@Activate
+	@Modified
+	public void activate(Map<String, Object> properties) {
+		_boletimConfiguration = ConfigurableUtil.createConfigurable(BoletimConfiguration.class, properties);
+	}
+	
+	@Reference
+	DLFileEntryLocalService _dlFileEntryLocalService;
+
+}

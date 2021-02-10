@@ -1,0 +1,75 @@
+package br.com.seatecnologia.kafka;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.WakeupException;
+import org.apache.log4j.Logger;
+
+public class ImportadorXmlKafkaConsumer implements Runnable {
+	private final AtomicBoolean closed = new AtomicBoolean(false);
+	private final KafkaConsumer<String, String> consumer;
+	
+	private static final Logger log = Logger.getLogger(ImportadorXmlKafkaConsumer.class);
+
+	public ImportadorXmlKafkaConsumer(Properties props, String topic) {
+		log.info("Init Kafka Consumer!!!");
+		try {
+			this.consumer = new KafkaConsumer<>(props);
+			this.consumer.subscribe(Arrays.asList(topic));
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("ERROR: " + e.getMessage());
+			throw e;
+		}
+	}
+
+	public void run() {
+		log.info("Starting Kafka Consumer!!!");
+		Map<String, List<PartitionInfo>> topics = consumer.listTopics();
+		for (String currentTopic : topics.keySet()) {
+			log.info(currentTopic);
+		}
+		try {
+			while (!closed.get()) {
+//				ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(10000));
+				ConsumerRecords<String, String> records = consumer.poll(1000);
+				Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
+				for (TopicPartition partition : records.partitions()) {
+					List<ConsumerRecord<String, String>> partitionRecords = records.records(partition);
+					// Handle new records
+					for (ConsumerRecord<String, String> record : partitionRecords) {
+						System.out.printf("%s [%d] offset=%d, key=%s, value=\"%s\"\n", record.topic(), record.partition(), record.offset(), record.key(), record.value());
+						offsets.put(partition, new OffsetAndMetadata(record.offset() + 1));
+					}
+				}
+				consumer.commitSync(offsets);
+				offsets.clear();
+			}
+		} catch (WakeupException e) {
+			// Ignore exception if closing
+			if (!closed.get()) {
+				log.error("Kafka Consumer Error!!!!");
+				throw e;
+			}
+		} finally {
+			consumer.close();
+		}
+		log.info("Good bye!!!");
+	}
+
+	// Shutdown hook which can be called from a separate thread
+	public void shutdown() {
+		closed.set(true);
+		consumer.wakeup();
+	}
+}

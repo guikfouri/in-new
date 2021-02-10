@@ -1,0 +1,33 @@
+dependencies {
+	compile project(":modules:notificacao-aplicativo:notificacao-aplicativo-api")
+
+	compileOnly group: "biz.aQute.bnd", name: "biz.aQute.bnd.annotation", version: "4.3.0"
+	compileOnly group: "com.liferay", name: "com.liferay.petra.io", version: "2.0.6"
+	compileOnly group: "com.liferay", name: "com.liferay.petra.string", version: "2.1.3"
+	compileOnly group: "com.liferay", name: "com.liferay.portal.spring.extender.api", version: "3.0.0"
+	compileOnly group: "com.liferay.portal", name: "com.liferay.portal.kernel", version: "3.46.1"
+	compileOnly group: "org.osgi", name: "org.osgi.core", version: "6.0.0"
+	compileOnly group: "org.osgi", name: "org.osgi.service.component.annotations", version:"1.3.0"
+
+	compileOnly group: "com.liferay", name: "com.liferay.portal.configuration.metatype", version: "2.0.0"
+	
+	compileOnly project(":modules:importador-dou:importador-dou-kafka-api")
+	compileOnly project(":modules:importador-dou:importador-dou-file-api")
+	compileOnly project(":modules:importador-dou:importador-dou-api")
+	compileOnly project(":modules:importador-dou:migrador-social-publisher-api")
+	compileOnly project(":modules:migrador:migrador-api")
+}
+
+buildService {
+	apiDir = "../notificacao-aplicativo-api/src/main/java"
+}
+
+group = "br.com.seatecnologia.in.notificacao.aplicativo"
+
+tasks.withType(JavaCompile) {
+
+	// Generated classes using Jodd library are unable to be read when compiled against JDK 11
+
+	sourceCompatibility = JavaVersion.VERSION_1_8
+	targetCompatibility = JavaVersion.VERSION_1_8
+}

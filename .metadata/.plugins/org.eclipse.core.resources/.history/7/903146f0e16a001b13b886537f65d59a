@@ -1,0 +1,6 @@
+Bundle-Name: importador-dou-json-parser
+Bundle-SymbolicName: br.com.seatecnologia.in.importador.dou.json.parser
+Bundle-Version: 1.0.0
+Export-Package: br.com.seatecnologia.in.importador.dou.json.factory
+Conditional-Package: \
+	org.jsoup.*

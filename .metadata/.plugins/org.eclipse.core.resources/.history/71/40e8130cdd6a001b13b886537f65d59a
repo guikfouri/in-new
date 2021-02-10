@@ -1,0 +1,25 @@
+package br.com.seatecnologia.biblioteca.visitors.counter.web.command;
+
+import aQute.bnd.annotation.metatype.Meta;
+import br.com.seatecnologia.biblioteca.visitors.counter.web.constants.BibliotecaVisitorsCounterWebPortletKeys;
+
+@Meta.OCD(
+		id = "br.com.seatecnologia.portal.visitors.counter.web.configuration.PortalVisitorsCounterWebConfiguration"
+	)
+
+public interface BibliotecaVisitorsCounterWebConfiguration {
+	
+	@Meta.AD(
+			name = "VIEW_ID",
+			required = false,
+			deflt = BibliotecaVisitorsCounterWebPortletKeys.VIEW_ID
+	)
+	public String viewID();
+	
+	@Meta.AD(
+			name = "PRIVATE_KEY_JSON",
+			required = false,
+			deflt = BibliotecaVisitorsCounterWebPortletKeys.PRIVATE_KEY_JSON
+	)
+	public String privateKeyJSON();
+}

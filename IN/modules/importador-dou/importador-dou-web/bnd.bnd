@@ -1,0 +1,6 @@
+Bundle-Name: importador-dou-web
+Bundle-SymbolicName: br.com.seatecnologia.in.importador.dou.web
+Bundle-Version: 1.0.0
+Export-Package: br.com.seatecnologia.in.importador.dou.web.constants
+Conditional-Package: \
+	org.jsoup.*

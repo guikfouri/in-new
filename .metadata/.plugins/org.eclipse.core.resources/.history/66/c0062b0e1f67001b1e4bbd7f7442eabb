@@ -1,0 +1,43 @@
+<%@ include file="/init.jsp" %>
+<%@ page import="br.com.seatecnologia.in.submit.jornal.configuration.JornalConfigurationDisplayContext" %>
+<%@ page import="br.com.seatecnologia.in.submit.jornal.utils.Utils" %>
+<%@ page import="com.liferay.portal.kernel.util.ParamUtil" %>
+
+<%@ page import="java.util.Map" %>
+<%@ page import="java.util.HashMap" %>
+<%@ page import="java.util.Map.Entry" %>
+
+<%
+JornalConfigurationDisplayContext jornalConfigurationDisplayContext = (JornalConfigurationDisplayContext)request.getAttribute(JornalConfigurationDisplayContext.class.getName());
+%>
+
+<p>
+Essa &eacute; a p&aacute;gina de configura&ccedil;&atilde;o do email de cria&ccedil;&atilde;o do jornal na INNet.
+</p>
+
+<liferay-frontend:fieldset>
+	<aui:input cssClass="lfr-input-text-container" name="preferences--groupId--" value="<%= jornalConfigurationDisplayContext.get_groupId() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--folderId--" value="<%= jornalConfigurationDisplayContext.get_folderId() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--folderIdImages--" value="<%= jornalConfigurationDisplayContext.get_folderIdImages() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--structureId--" value="<%= jornalConfigurationDisplayContext.get_structureId() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--templateId--" value="<%= jornalConfigurationDisplayContext.get_templateId() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--pathLogo--" value="<%= jornalConfigurationDisplayContext.get_pathLogo() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--pathScript--" value="<%= jornalConfigurationDisplayContext.get_pathScript() %>" />
+	
+	<aui:input cssClass="lfr-input-text-container" name="preferences--fromName--" value="<%= jornalConfigurationDisplayContext.get_fromName() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--fromAddress--" value="<%= jornalConfigurationDisplayContext.get_fromAddress() %>" />
+	<aui:input cssClass="lfr-input-text-container" name="preferences--emailDest--" value="<%= jornalConfigurationDisplayContext.get_emailDest() %>" />
+	
+	<aui:input cssClass="lfr-input-text-container" name="preferences--port--" value="<%= jornalConfigurationDisplayContext.get_port() %>" />
+	
+	<liferay-frontend:email-notification-settings
+		emailBody="<%=jornalConfigurationDisplayContext.get_emailBody() %>"
+		emailParam="email"
+		emailSubject="<%=jornalConfigurationDisplayContext.get_emailSubject() %>"
+		showEmailEnabled="<%= false %>"
+	/>
+</liferay-frontend:fieldset>
+
+<aui:fieldset cssClass="definition-of-terms email-verification terms" label="definition-of-terms">
+	<%@ include file="/configuration/definition_of_terms.jspf" %>
+</aui:fieldset>

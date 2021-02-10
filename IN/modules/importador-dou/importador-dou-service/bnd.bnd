@@ -1,0 +1,8 @@
+Bundle-Name: importador-dou-service
+Bundle-SymbolicName: br.com.seatecnologia.in.importador.dou.service
+Bundle-Version: 1.0.0
+Liferay-Require-SchemaVersion: 1.0.0
+Liferay-Service: true
+Conditional-Package: \
+	org.jsoup.*, \
+	org.apache.commons.lang3.*

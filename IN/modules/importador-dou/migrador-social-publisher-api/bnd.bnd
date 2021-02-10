@@ -1,0 +1,10 @@
+Bundle-Name: migrador-social-publisher-api
+Bundle-SymbolicName: br.com.seatecnologia.migrador.social.publisher.api
+Bundle-Version: 1.0.0
+Export-Package:\
+	br.com.seatecnologia.migrador.social.publisher.exception,\
+	br.com.seatecnologia.migrador.social.publisher.model,\
+	br.com.seatecnologia.migrador.social.publisher.service,\
+	br.com.seatecnologia.migrador.social.publisher.service.persistence
+-check: EXPORTS
+-includeresource: META-INF/service.xml=../migrador-social-publisher-service/service.xml
