@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<beans
+	default-destroy-method="destroy"
+	default-init-method="afterPropertiesSet"
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd"
+>
+	<bean class="br.com.seatecnologia.in.importador.dou.service.impl.ItemImportacaoLocalServiceImpl" id="br.com.seatecnologia.in.importador.dou.service.ItemImportacaoLocalService" />
+	<bean class="br.com.seatecnologia.in.importador.dou.service.persistence.impl.ItemImportacaoPersistenceImpl" id="br.com.seatecnologia.in.importador.dou.service.persistence.ItemImportacaoPersistence" parent="basePersistence" />
+</beans>

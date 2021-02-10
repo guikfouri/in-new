@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<model-hints>
+	<model name="br.com.seatecnologia.in.importador.dou.model.ItemImportacao">
+		<field name="itemImportacaoId" type="long" />
+		<field name="tipoItem" type="String">
+			<hint name="max-length">1000</hint>
+		</field>
+		<field name="dataImportacao" type="Date" />
+		<field name="identificadorAtualizacao" type="String">
+			<hint name="max-length">1000</hint>
+		</field>
+		<field name="importado" type="boolean" />
+	</model>
+</model-hints>
